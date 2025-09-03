@@ -15,10 +15,10 @@ import json
 import re
 import ast
 from langchain_core.tools import tool
-from langchain_tavily import TavilySearch
+from langchain_community.tools.tavily_search import TavilySearchResults
 
 # Инициализация Tavily поиска
-tavily_search = TavilySearch(api_key=os.getenv("TAVILY_API_KEY"))
+tavily_search = TavilySearchResults(max_results=5)
 
 @tool
 def analyze_code_quality(code: str, language: str = "python") -> str:
@@ -577,6 +577,30 @@ def monitor_homelab_services() -> str:
         return f"❌ Ошибка при мониторинге сервисов: {str(e)}"
 
 
+@tool
+def get_weather_info(city: str) -> str:
+    """Получить актуальную информацию о погоде в указанном городе.
+    
+    Args:
+        city: Название города (например: Москва, Санкт-Петербург, London)
+    """
+    try:
+        # Используем Tavily для поиска актуальной информации о погоде
+        query = f"погода {city} сегодня актуальная температура осадки"
+        result = tavily_search.invoke(query)
+        
+        if result and "❌" not in result:
+            return f"🌤️ **Погода в {city}:**\n\n{result}"
+        else:
+            # Если поиск не дал результатов, используем прямой поиск
+            fallback_query = f"weather {city} current temperature conditions"
+            fallback_result = tavily_search.invoke(fallback_query)
+            return f"🌤️ **Погода в {city}:**\n\n{fallback_result}"
+            
+    except Exception as e:
+        return f"❌ Ошибка получения информации о погоде: {str(e)}"
+
+
 # Список всех инструментов для удобства импорта
 ALL_CUSTOM_TOOLS = [
     analyze_code_quality,
@@ -589,5 +613,6 @@ ALL_CUSTOM_TOOLS = [
     github_get_file_content,
     github_search,
     tavily_search,
+    get_weather_info,
     monitor_homelab_services
 ]

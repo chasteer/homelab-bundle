@@ -8,25 +8,44 @@ import os
 import chromadb
 from datetime import datetime
 from sqlmodel import create_engine, Session, select
-from .app import LogDoc
+from models import LogDoc
 
 # Настройки базы данных
 DB_PATH = os.environ.get("AGENT_DB", "sqlite:///./agent.db")
-RAG_DB_DIR = os.environ.get("RAG_DB_DIR", "/data/index")
+RAG_DB_DIR = os.environ.get("RAG_DB_DIR", "./data/index")
 COLLECTION = "homelab_docs"
 
-# Инициализация ChromaDB
-client = chromadb.PersistentClient(path=RAG_DB_DIR)
-if COLLECTION not in [c.name for c in client.list_collections()]:
-    coll = client.create_collection(COLLECTION, metadata={"hnsw:space": "cosine"})
-else:
-    coll = client.get_collection(COLLECTION)
+# Инициализация ChromaDB (отложенная)
+client = None
+coll = None
+
+def _init_chromadb():
+    """Отложенная инициализация ChromaDB"""
+    global client, coll
+    if client is None:
+        try:
+            client = chromadb.PersistentClient(path=RAG_DB_DIR)
+            if COLLECTION not in [c.name for c in client.list_collections()]:
+                coll = client.create_collection(COLLECTION, metadata={"hnsw:space": "cosine"})
+            else:
+                coll = client.get_collection(COLLECTION)
+        except Exception as e:
+            print(f"Ошибка инициализации ChromaDB: {e}")
+            client = None
+            coll = None
 
 def add_docs(docs: List[str], metadatas: List[Dict[str, Any]]):
     """Добавление документов в RAG индекс"""
-    ids = [f"doc_{i}_{abs(hash(d))}" for i, d in enumerate(docs)]
-    coll.add(documents=docs, metadatas=metadatas, ids=ids)
-    return ids
+    _init_chromadb()
+    if coll is None:
+        return []
+    try:
+        ids = [f"doc_{i}_{abs(hash(d))}" for i, d in enumerate(docs)]
+        coll.add(documents=docs, metadatas=metadatas, ids=ids)
+        return ids
+    except Exception as e:
+        print(f"Ошибка добавления документов в RAG: {e}")
+        return []
 
 def query(q: str, k: int = 5):
     """Поиск в RAG индексе"""

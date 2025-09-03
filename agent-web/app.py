@@ -16,7 +16,7 @@ import uuid
 from datetime import datetime
 
 # Настройки базы данных
-DB_TYPE = os.environ.get("DB_TYPE", "sqlite")
+DB_TYPE = os.environ.get("DB_TYPE", "postgres")
 if DB_TYPE == "postgres":
     DB_PATH = os.environ.get("AGENT_DB", "postgresql://agent:agent123@agent-db:5432/homelab_agent")
 else:
@@ -32,12 +32,7 @@ app = FastAPI(title="Homelab Agent Web")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
-class LogDoc(SQLModel, table=True):
-    id: Optional[int] = Field(default=None, primary_key=True)
-    kind: str
-    source: str
-    content: str
-    timestamp: Optional[str] = Field(default_factory=lambda: datetime.now().isoformat())
+from models import LogDoc
 
 # Создаем таблицы
 SQLModel.metadata.create_all(engine)

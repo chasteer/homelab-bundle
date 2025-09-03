@@ -77,7 +77,9 @@ echo "📁 Создание директорий..."
 mkdir -p data/index logs github-config
 
 # Проверяем, что сеть homelab существует
-if ! sudo docker network ls | grep -q "^homelab "; then
+if sudo docker network ls | grep -q " homelab "; then
+    echo "✅ Сеть homelab найдена"
+else
     echo "❌ Сеть homelab не найдена. Запустите сначала: ./scripts/20_deploy_core.sh"
     exit 1
 fi

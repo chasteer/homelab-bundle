@@ -13,7 +13,7 @@ services:
       - TAVILY_API_KEY=${TAVILY_API_KEY}
       - GITHUB_TOKEN=${GITHUB_TOKEN}
       - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
-      - AGENT_DB=sqlite:///app/agent.db
+      - AGENT_DB=postgresql://agent:agent123@agent-db:5432/homelab_agent
       - RAG_DB_DIR=/app/data/index
     volumes:
       - ./data:/app/data
