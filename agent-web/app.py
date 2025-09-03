@@ -9,6 +9,7 @@ from sqlmodel import SQLModel, Field, create_engine, Session, select
 from agent.graph import get_graph
 from agent.rag import add_docs
 from langchain_core.messages import HumanMessage
+from formatter import create_enhanced_response
 import hmac
 import hashlib
 import json
@@ -90,10 +91,8 @@ def chat(body: ChatBody):
             
             session.commit()
         
-        return {
-            "response": response_content,
-            "session_id": session_id
-        }
+        # Возвращаем улучшенный ответ с форматированием
+        return create_enhanced_response(response_content, session_id)
         
     except Exception as e:
         # Логируем ошибку
