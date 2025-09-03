@@ -73,7 +73,7 @@ Wants=network.target
 [Service]
 Type=simple
 User=$(whoami)
-ExecStart=/usr/local/bin/ngrok http 192.168.1.200:8000 $AUTH_OPTION $LOG_OPTION
+ExecStart=/usr/local/bin/ngrok http ${HOMELAB_HOST:-your_local_ip}:8000 $AUTH_OPTION $LOG_OPTION
 Restart=always
 RestartSec=10
 StandardOutput=journal

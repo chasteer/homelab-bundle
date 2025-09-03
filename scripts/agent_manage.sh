@@ -69,8 +69,8 @@ show_status() {
     sudo docker compose ps
     
     echo ""
-    echo "🌐 Веб-интерфейс: http://192.168.1.200:8000"
-    echo "🔍 Health check: http://192.168.1.200:8000/api/health"
+    echo "🌐 Веб-интерфейс: http://${HOMELAB_HOST:-your_local_ip}:8000"
+    echo "🔍 Health check: http://${HOMELAB_HOST:-your_local_ip}:8000/api/health"
 }
 
 show_logs() {
@@ -157,12 +157,12 @@ restore_data() {
 check_health() {
     echo "🔍 Проверка здоровья Homelab Agent..."
     
-    if ! curl -f http://192.168.1.200:8000/api/health >/dev/null 2>&1; then
+    if ! curl -f http://${HOMELAB_HOST:-your_local_ip}:8000/api/health >/dev/null 2>&1; then
         echo "❌ Сервис не отвечает"
         return 1
     fi
     
-    response=$(curl -s http://192.168.1.200:8000/api/health)
+            response=$(curl -s http://${HOMELAB_HOST:-your_local_ip}:8000/api/health)
     echo "✅ Сервис отвечает"
     echo "📊 Статус: $response"
 }
@@ -170,12 +170,12 @@ check_health() {
 show_services() {
     echo "🔍 Получение статуса всех сервисов homelab..."
     
-    if ! curl -f http://192.168.1.200:8000/api/services >/dev/null 2>&1; then
+    if ! curl -f http://${HOMELAB_HOST:-your_local_ip}:8000/api/services >/dev/null 2>&1; then
         echo "❌ Не удалось получить статус сервисов"
         return 1
     fi
     
-    response=$(curl -s http://192.168.1.200:8000/api/services)
+            response=$(curl -s http://${HOMELAB_HOST:-your_local_ip}:8000/api/services)
     echo "📊 Статус сервисов:"
     echo "$response" | python3 -m json.tool 2>/dev/null || echo "$response"
 }

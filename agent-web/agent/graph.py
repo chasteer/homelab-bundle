@@ -53,17 +53,24 @@ SYSTEM_PROMPT = """Ты - Homelab Agent, умный помощник для уп
 - Системные инструменты: информация о системе, Docker, GitHub
 - Анализ кода: проверка качества и стиля кода
 - Мониторинг: состояние сервисов homelab
+- Uptime Kuma: мониторинг и отчеты о состоянии системы
+
+НОВЫЕ ВОЗМОЖНОСТИ МОНИТОРИНГА:
+- monitor_uptime_kuma(): получение актуального статуса мониторинга
+- generate_uptime_report(): генерация полного отчета с рекомендациями
+- send_uptime_alert(): отправка уведомлений о проблемах
 
 ПРИМЕРЫ:
 - Вопрос о погоде → используй TavilySearch для получения актуальных данных
 - Технический вопрос → используй соответствующий инструмент
 - Неизвестная информация → ищи через доступные инструменты
+- Вопрос о мониторинге → используй monitor_uptime_kuma для получения актуального статуса
+- Вопрос о состоянии системы → используй generate_uptime_report для полного анализа
 
 ПОМНИ: Ты можешь искать информацию в реальном времени - используй эту возможность!"""
 
-# GigaChat не поддерживает инструменты в текущей версии
-# Используем базовый LLM с системным промптом
-llm_with_tools = llm
+# Привязываем инструменты к LLM
+llm_with_tools = llm.bind_tools(tools)
 
 # Создаем состояние
 class State(TypedDict):
@@ -84,8 +91,25 @@ def chatbot(state: State):
     
     return {"messages": [llm_with_tools.invoke(messages)]}
 
+# Создаем узел для инструментов
+tool_node = ToolNode(tools)
+
 # Добавляем узлы
 graph_builder.add_node("chatbot", chatbot)
+graph_builder.add_node("tools", tool_node)
+
+# Добавляем условные ребра
+graph_builder.add_conditional_edges(
+    "chatbot",
+    tools_condition,
+    {
+        "tools": "tools",
+        END: END
+    }
+)
+
+# Добавляем ребро от инструментов обратно к чат-боту
+graph_builder.add_edge("tools", "chatbot")
 
 # Устанавливаем точку входа
 graph_builder.set_entry_point("chatbot")

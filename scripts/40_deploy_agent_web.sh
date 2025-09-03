@@ -95,12 +95,12 @@ sleep 15
 # Проверяем статус
 if sudo docker compose ps | grep -q "Up"; then
     echo "✅ Homelab Agent успешно запущен!"
-    echo "🌐 Веб-интерфейс: http://192.168.1.200:8000"
+    echo "🌐 Веб-интерфейс: http://${HOMELAB_HOST:-your_local_ip}:8000"
     echo "📊 Статус: $(sudo docker compose ps)"
     
     # Проверяем здоровье
     echo "🔍 Проверка здоровья сервиса..."
-    if curl -f http://192.168.1.200:8000/api/health >/dev/null 2>&1; then
+    if curl -f http://${HOMELAB_HOST:-your_local_ip}:8000/api/health >/dev/null 2>&1; then
         echo "✅ Сервис отвечает"
     else
         echo "⚠️  Сервис не отвечает, проверьте логи: sudo docker compose logs agent"

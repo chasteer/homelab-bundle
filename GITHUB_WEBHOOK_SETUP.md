@@ -36,7 +36,7 @@
 
 4. Запустите туннель:
    ```bash
-   ngrok http 192.168.1.200:8000
+   ngrok http your_local_ip:8000
    ```
 
 5. Скопируйте HTTPS URL (например: `https://abc123.ngrok.io`)
@@ -73,7 +73,7 @@
 
 1. На VPS создайте SSH туннель:
    ```bash
-   ssh -R 8000:192.168.1.200:8000 user@your-vps.com
+   ssh -R 8000:your_local_ip:8000 user@your-vps.com
    ```
 
 2. На VPS настройте nginx для проксирования:
@@ -202,7 +202,7 @@ After=network.target
 [Service]
 Type=simple
 User=your_username
-ExecStart=/usr/bin/ngrok http 192.168.1.200:8000
+ExecStart=/usr/bin/ngrok http your_local_ip:8000
 Restart=always
 RestartSec=10
 

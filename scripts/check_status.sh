@@ -34,9 +34,9 @@ check_web_interface() {
     fi
 }
 
-check_web_interface "Jellyfin" "http://192.168.1.200:8096"
-check_web_interface "TorrServer" "http://192.168.1.200:8090"
-check_web_interface "Immich" "http://192.168.1.200:2283"
-check_web_interface "Vaultwarden" "http://192.168.1.200:8081"
-check_web_interface "Uptime Kuma" "http://192.168.1.200:3001"
-check_web_interface "Homelab Agent" "http://192.168.1.200:8000"
+check_web_interface "Jellyfin" "http://${HOMELAB_HOST:-your_local_ip}:8096"
+check_web_interface "TorrServer" "http://${HOMELAB_HOST:-your_local_ip}:8090"
+check_web_interface "Immich" "http://${HOMELAB_HOST:-your_local_ip}:2283"
+check_web_interface "Vaultwarden" "http://${HOMELAB_HOST:-your_local_ip}:8081"
+check_web_interface "Uptime Kuma" "http://${HOMELAB_HOST:-your_local_ip}:3001"
+check_web_interface "Homelab Agent" "http://${HOMELAB_HOST:-your_local_ip}:8000"

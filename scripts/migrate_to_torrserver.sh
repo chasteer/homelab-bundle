@@ -131,8 +131,8 @@ cd ..
 
 # Проверяем доступность TorrServer
 echo "🌐 Проверка доступности TorrServer..."
-if curl -f http://192.168.1.200:8090 >/dev/null 2>&1; then
-    echo "✅ TorrServer доступен по адресу: http://192.168.1.200:8090"
+    if curl -f http://${HOMELAB_HOST:-your_local_ip}:8090 >/dev/null 2>&1; then
+        echo "✅ TorrServer доступен по адресу: http://${HOMELAB_HOST:-your_local_ip}:8090"
 else
     echo "⚠️  TorrServer не отвечает, проверьте логи:"
     echo "   docker compose -f services/docker-compose.yml logs torrserver"
@@ -148,12 +148,12 @@ echo "   - Конфигурация обновлена"
 echo "   - UFW правила обновлены"
 echo ""
 echo "🌐 Новые адреса:"
-echo "   - TorrServer: http://192.168.1.200:8090"
-echo "   - Jellyfin: http://192.168.1.200:8096"
-echo "   - Immich: http://192.168.1.200:2283"
-echo "   - Vaultwarden: http://192.168.1.200:8081"
-echo "   - Uptime Kuma: http://192.168.1.200:3001"
-echo "   - Homelab Agent: http://192.168.1.200:8000"
+    echo "   - TorrServer: http://${HOMELAB_HOST:-your_local_ip}:8090"
+    echo "   - Jellyfin: http://${HOMELAB_HOST:-your_local_ip}:8096"
+    echo "   - Immich: http://${HOMELAB_HOST:-your_local_ip}:2283"
+    echo "   - Vaultwarden: http://${HOMELAB_HOST:-your_local_ip}:8081"
+    echo "   - Uptime Kuma: http://${HOMELAB_HOST:-your_local_ip}:3001"
+    echo "   - Homelab Agent: http://${HOMELAB_HOST:-your_local_ip}:8000"
 echo ""
 echo "📁 Резервные копии:"
 echo "   - docker-compose.yml: services/docker-compose.yml.backup.*"

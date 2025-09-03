@@ -5,7 +5,7 @@ services:
     container_name: traefik
     networks: [homelab]
     depends_on: [ jellyfin, qbittorrent, immich-server, vaultwarden, uptime-kuma, homelab-agent-web ]
-    ports: [ "192.168.1.200:80:80", "192.168.1.200:443:443" ]
+    ports: [ "${HOMELAB_HOST:-your_local_ip}:80:80", "${HOMELAB_HOST:-your_local_ip}:443:443" ]
     volumes:
       - ./traefik.yml:/etc/traefik/traefik.yml:ro
       - ./dynamic.yml:/etc/traefik/dynamic.yml:ro

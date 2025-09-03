@@ -3,7 +3,7 @@ services:
     image: caddy:2
     container_name: caddy
     networks: [homelab]
-    ports: ["192.168.1.200:443:443"]
+    ports: ["${HOMELAB_HOST:-your_local_ip}:443:443"]
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data

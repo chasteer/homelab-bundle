@@ -10,6 +10,7 @@ from agent.graph import get_graph
 from agent.rag import add_docs
 from langchain_core.messages import HumanMessage
 from formatter import create_enhanced_response
+from webhook_uptime import router as uptime_webhook_router
 import hmac
 import hashlib
 import json
@@ -40,6 +41,9 @@ SQLModel.metadata.create_all(engine)
 
 # Получаем граф агента
 GRAPH = get_graph()
+
+# Подключаем вебхук для Uptime Kuma
+app.include_router(uptime_webhook_router, prefix="/api", tags=["webhooks"])
 
 @app.get("/", response_class=HTMLResponse)
 def index(request: Request):

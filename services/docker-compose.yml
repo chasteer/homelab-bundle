@@ -7,7 +7,7 @@ services:
     image: jellyfin/jellyfin:latest
     container_name: jellyfin
     networks: [homelab]
-    ports: ["192.168.1.200:8096:8096"]
+    ports: ["${HOMELAB_HOST:-your_local_ip}:8096:8096"]
     volumes:
       - /srv/media/config/jellyfin:/config
       - /srv/media/library:/media
@@ -23,7 +23,7 @@ services:
     container_name: torrserver
     networks: [homelab]
     ports:
-      - "192.168.1.200:8090:8090"
+      - "${HOMELAB_HOST:-your_local_ip}:8090:8090"
     environment:
       - TZ=${TZ}
       - TS_PORT=8090
@@ -38,7 +38,7 @@ services:
       - /srv/media/cache:/opt/ts/cache
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8090"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8090 || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 10
@@ -50,7 +50,7 @@ services:
         aliases:
           - immich-server
     depends_on: [ immich-postgres, immich-redis, immich-ml ]
-    ports: ["192.168.1.200:2283:2283"]
+    ports: ["${HOMELAB_HOST:-your_local_ip}:2283:2283"]
     environment:
       - TZ=${TZ}
       - DATABASE_URL=postgresql://immich:${IMMICH_DB_PASSWORD}@immich-postgres:5432/immich
@@ -104,7 +104,7 @@ services:
     image: vaultwarden/server:latest
     container_name: vaultwarden
     networks: [homelab]
-    ports: ["192.168.1.200:8081:80"]
+    ports: ["${HOMELAB_HOST:-your_local_ip}:8081:80"]
     environment:
       - TZ=${TZ}
       - SIGNUPS_ALLOWED=${VW_SIGNUPS_ALLOWED}
@@ -113,7 +113,7 @@ services:
       - /srv/secrets/vaultwarden:/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost/"]
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost/ || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 10
@@ -121,8 +121,9 @@ services:
     image: louislam/uptime-kuma:latest
     container_name: uptime-kuma
     networks: [homelab]
-    ports: ["192.168.1.200:3001:3001"]
+    ports: ["${HOMELAB_HOST:-your_local_ip}:3001:3001"]
     volumes:
       - /srv/homelab/uptime-kuma:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     restart: unless-stopped
 

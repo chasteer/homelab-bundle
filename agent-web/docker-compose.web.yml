@@ -4,7 +4,7 @@ services:
     image: homelab-agent-web:latest
     container_name: homelab-agent-web
     networks: [homelab]
-    ports: [ "192.168.1.200:8000:8000" ]
+    ports: [ "${HOMELAB_HOST:-your_local_ip}:8000:8000" ]
     environment:
       - AGENT_DB=sqlite:///./agent.db
       - RAG_DB_DIR=/data/index

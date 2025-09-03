@@ -70,7 +70,7 @@ GITHUB_WEBHOOK_SECRET=your_very_strong_secret_here
 ### **2. Дополнительные меры:**
 ```bash
 # Используйте ngrok с аутентификацией
-ngrok http 192.168.1.200:8000 --basic-auth="username:password"
+ngrok http your_local_ip:8000 --basic-auth="username:password"
 
 # Ограничьте по IP (если возможно)
 # Настройте firewall правила
@@ -79,7 +79,7 @@ ngrok http 192.168.1.200:8000 --basic-auth="username:password"
 ### **3. Мониторинг:**
 ```bash
 # Проверяйте логи ngrok
-ngrok http 192.168.1.200:8000 --log=stdout
+ngrok http your_local_ip:8000 --log=stdout
 
 # Мониторьте логи агента
 sudo journalctl -u homelab-agent-web -f
@@ -99,7 +99,7 @@ sudo journalctl -u homelab-agent-web -f
 
 ### **1. Базовая аутентификация:**
 ```bash
-ngrok http 192.168.1.200:8000 --basic-auth="username:password"
+ngrok http your_local_ip:8000 --basic-auth="username:password"
 ```
 
 ### **2. Ограничение по IP:**

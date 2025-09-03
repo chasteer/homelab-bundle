@@ -6,7 +6,7 @@ services:
     container_name: homelab-agent
     restart: unless-stopped
     ports:
-      - "192.168.1.200:8000:8000"
+      - "${HOMELAB_HOST:-your_local_ip}:8000:8000"
     environment:
       - TZ=${TZ:-UTC}
       - GIGACHAT_CREDENTIALS=${GIGACHAT_CREDENTIALS}
@@ -15,6 +15,10 @@ services:
       - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
       - AGENT_DB=postgresql://agent:agent123@agent-db:5432/homelab_agent
       - RAG_DB_DIR=/app/data/index
+      - HOMELAB_HOST=${HOMELAB_HOST:-localhost}
+      - UPTIME_KUMA_URL=${UPTIME_KUMA_URL:-http://localhost:3001}
+      - AGENT_WEBHOOK_URL=${AGENT_WEBHOOK_URL:-http://localhost:8000/api/webhook/uptime-kuma}
+      - VPS_WEBHOOK_URL=${VPS_WEBHOOK_URL:-https://your_vps_domain.com/api/uptime-alerts}
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
