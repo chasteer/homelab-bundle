@@ -1,0 +1,26 @@
+services:
+  homelab-agent-web:
+    build: .
+    image: homelab-agent-web:latest
+    container_name: homelab-agent-web
+    networks: [homelab]
+    ports: [ "192.168.1.200:8000:8000" ]
+    environment:
+      - AGENT_DB=sqlite:///./agent.db
+      - RAG_DB_DIR=/data/index
+      - GIGACHAT_API_KEY=${GIGACHAT_API_KEY}
+      - TAVILY_API_KEY=${TAVILY_API_KEY}
+      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
+      - REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt
+      - SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt
+      - PYTHONHTTPSVERIFY=0
+      - REQUESTS_VERIFY=false
+    volumes:
+      - agent-index:/data/index
+    restart: unless-stopped
+networks:
+  homelab:
+    external: true
+volumes:
+  agent-index:

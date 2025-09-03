@@ -1,0 +1,15 @@
+http:
+  routers:
+    qb:       {rule: "Host(`qb.home.arpa`)", entryPoints: ["web"], service: qb-svc}
+    immich:   {rule: "Host(`immich.home.arpa`)", entryPoints: ["web"], service: immich-svc}
+    vault:    {rule: "Host(`vaultwarden.home.arpa`)", entryPoints: ["web"], service: vault-svc}
+    kuma:     {rule: "Host(`kuma.home.arpa`)", entryPoints: ["web"], service: kuma-svc}
+    agent:    {rule: "Host(`agent.home.arpa`)", entryPoints: ["web"], service: agent-svc}
+  services:
+    qb-svc:       {loadBalancer: {servers: [{url: "http://qbittorrent:8080"}]}}
+    immich-svc:   {loadBalancer: {servers: [{url: "http://immich-server:2283"}]}}
+    vault-svc:    {loadBalancer: {servers: [{url: "http://vaultwarden:80"}]}}
+    kuma-svc:     {loadBalancer: {servers: [{url: "http://uptime-kuma:3001"}]}}
+    agent-svc:    {loadBalancer: {servers: [{url: "http://homelab-agent-web:8000"}]}}
+    jellyfin: {rule: "Host(`jellyfin.home.arpa`)", entryPoints: ["web"], service: jellyfin-svc}
+    jellyfin-svc: {loadBalancer: {servers: [{url: "http://jellyfin:8096"}]}}

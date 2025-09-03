@@ -1,0 +1,32 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Homelab Agent</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+<style>body{max-width:1100px;margin:auto}pre{white-space:pre-wrap}.bubble{padding:.75rem 1rem;border-radius:12px;margin:.5rem 0}.me{background:#e6f0ff}.bot{background:#f5f5f5}</style>
+</head><body><main><h1>Homelab Agent (LangGraph + GigaChat)</h1>
+<details><summary>Загрузить файлы для RAG (логи, compose, README)</summary>
+<form id="upload-form"><input type="file" id="files" name="files" multiple /><button type="submit">Загрузить</button></form>
+<small>Файлы сохраняются в SQLite и индексируются в Chroma для контекста.</small></details>
+<article><form id="chat-form">
+<label>Сообщение агенту</label><textarea id="message" rows="3" placeholder="объясни логи..., сгенерируй compose для ..."></textarea>
+<label>Опционально: docker-compose</label><textarea id="compose" rows="8" placeholder="---"></textarea>
+<label>Опционально: compose прокси (Caddy/Traefik)</label><textarea id="compose_proxy" rows="6" placeholder="---"></textarea>
+<button type="submit">Отправить</button></form></article>
+<section id="chat"></section></main>
+<script>
+const chatEl=document.getElementById('chat'); const form=document.getElementById('chat-form');
+form.addEventListener('submit',async(e)=>{e.preventDefault();const message=document.getElementById('message').value;
+const compose=document.getElementById('compose').value; const compose_proxy=document.getElementById('compose_proxy').value;
+addBubble(message,'me'); const resp=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message,compose,compose_proxy})});
+const data=await resp.json(); addBubble(data.report||JSON.stringify(data),'bot');});
+function addBubble(text,who){const div=document.createElement('div');div.className='bubble '+who;const pre=document.createElement('pre');pre.textContent=text;div.appendChild(pre);chatEl.appendChild(div);window.scrollTo(0,document.body.scrollHeight);}
+const uploadForm=document.getElementById('upload-form'); uploadForm.addEventListener('submit',async(e)=>{e.preventDefault();const files=document.getElementById('files').files; const fd=new FormData();
+for(const f of files) fd.append('files',f); const resp=await fetch('/api/upload',{method:'POST',body:fd}); const data=await resp.json(); alert('Загружено: '+data.count);});
+
+check_web_interface("Jellyfin", "http://192.168.1.200:8096");
+check_web_interface("TorrServer", "http://192.168.1.200:8090");
+check_web_interface("Immich", "http://192.168.1.200:2283");
+check_web_interface("Vaultwarden", "http://192.168.1.200:8081");
+check_web_interface("Uptime Kuma", "http://192.168.1.200:3001");
+check_web_interface("Homelab Agent", "http://192.168.1.200:8000");
+
+</script></body></html>

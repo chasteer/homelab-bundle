@@ -1,0 +1,17 @@
+services:
+  caddy:
+    image: caddy:2
+    container_name: caddy
+    networks: [homelab]
+    ports: ["192.168.1.200:443:443"]
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+networks:
+  homelab:
+    external: true
+volumes:
+  caddy-data:
+  caddy-config:

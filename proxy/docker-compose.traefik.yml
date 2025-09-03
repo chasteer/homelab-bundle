@@ -1,0 +1,15 @@
+version: "3.9"
+services:
+  traefik:
+    image: traefik:v3.0
+    container_name: traefik
+    networks: [homelab]
+    depends_on: [ jellyfin, qbittorrent, immich-server, vaultwarden, uptime-kuma, homelab-agent-web ]
+    ports: [ "192.168.1.200:80:80", "192.168.1.200:443:443" ]
+    volumes:
+      - ./traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./dynamic.yml:/etc/traefik/dynamic.yml:ro
+    restart: unless-stopped
+networks:
+  homelab:
+    external: true

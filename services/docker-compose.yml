@@ -1,0 +1,128 @@
+name: homelab
+networks:
+  homelab:
+    external: true
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:latest
+    container_name: jellyfin
+    networks: [homelab]
+    ports: ["192.168.1.200:8096:8096"]
+    volumes:
+      - /srv/media/config/jellyfin:/config
+      - /srv/media/library:/media
+    environment: [ "TZ=${TZ}" ]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8096/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+  torrserver:
+    image: ghcr.io/yourok/torrserver:latest
+    container_name: torrserver
+    networks: [homelab]
+    ports:
+      - "192.168.1.200:8090:8090"
+    environment:
+      - TZ=${TZ}
+      - TS_PORT=8090
+      - TS_DONTKILL=1
+      - TS_HTTPAUTH=0
+      - TS_CONF_PATH=/opt/ts/config
+      - TS_TORR_DIR=/opt/ts/torrents
+      - TS_LOG_PATH=/opt/ts/log
+    volumes:
+      - /srv/media/config/torrserver:/opt/ts/config
+      - /srv/media/downloads:/opt/ts/torrents
+      - /srv/media/cache:/opt/ts/cache
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8090"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+  immich-server:
+    image: ghcr.io/immich-app/immich-server:release
+    container_name: immich-server
+    networks:
+      homelab:
+        aliases:
+          - immich-server
+    depends_on: [ immich-postgres, immich-redis, immich-ml ]
+    ports: ["192.168.1.200:2283:2283"]
+    environment:
+      - TZ=${TZ}
+      - DATABASE_URL=postgresql://immich:${IMMICH_DB_PASSWORD}@immich-postgres:5432/immich
+      - DB_HOSTNAME=immich-postgres
+      - DB_HOST=immich-postgres
+      - DB_PORT=5432
+      - DB_DATABASE=immich
+      - DB_USERNAME=immich
+      - DB_PASSWORD=${IMMICH_DB_PASSWORD}
+      - REDIS_HOST=immich-redis
+      - REDIS_HOSTNAME=immich-redis
+    volumes:
+      - /srv/photos/library:/usr/src/app/upload
+      - /srv/immich/cache:/cache
+    restart: unless-stopped
+  immich-ml:
+    image: ghcr.io/immich-app/immich-machine-learning:release
+    container_name: immich-ml
+    networks:
+      homelab:
+        aliases:
+          - immich-ml
+    environment: [ "TZ=${TZ}" ]
+    volumes:
+      - /srv/immich/ml:/cache
+    restart: unless-stopped
+  immich-postgres:
+    image: ankane/pgvector:latest
+    container_name: immich-postgres
+    networks:
+      homelab:
+        aliases:
+          - database
+    environment:
+      - POSTGRES_DB=immich
+      - POSTGRES_USER=immich
+      - POSTGRES_PASSWORD=${IMMICH_DB_PASSWORD}
+      - TZ=${TZ}
+    volumes:
+      - /srv/photos/db:/var/lib/postgresql/data
+    restart: unless-stopped
+  immich-redis:
+    image: redis:7
+    container_name: immich-redis
+    networks:
+      homelab:
+        aliases:
+          - redis
+    restart: unless-stopped
+  vaultwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    networks: [homelab]
+    ports: ["192.168.1.200:8081:80"]
+    environment:
+      - TZ=${TZ}
+      - SIGNUPS_ALLOWED=${VW_SIGNUPS_ALLOWED}
+      - DOMAIN=http://vaultwarden.home.arpa
+    volumes:
+      - /srv/secrets/vaultwarden:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 10
+  uptime-kuma:
+    image: louislam/uptime-kuma:latest
+    container_name: uptime-kuma
+    networks: [homelab]
+    ports: ["192.168.1.200:3001:3001"]
+    volumes:
+      - /srv/homelab/uptime-kuma:/app/data
+    restart: unless-stopped
+
