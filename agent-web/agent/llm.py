@@ -11,12 +11,19 @@ def get_gigachat():
     if not credentials:
         raise RuntimeError("Не задан GIGACHAT_CREDENTIALS в окружении.")
     
-    return GigaChat(
-        credentials=credentials,
-        verify_ssl_certs=False,
-        scope="GIGACHAT_API_PERS",
-        model="GigaChat-2",
-    )
+    try:
+        return GigaChat(
+            credentials=credentials,
+            verify_ssl_certs=False,
+            scope="GIGACHAT_API_PERS",
+            model="GigaChat-2",
+            timeout=30,
+            max_retries=3
+        )
+    except Exception as e:
+        print(f"❌ Ошибка инициализации GigaChat: {str(e)}")
+        # Возвращаем заглушку для тестирования
+        return None
 
 def chat(llm, messages):
     """Выполнение чата с LLM"""

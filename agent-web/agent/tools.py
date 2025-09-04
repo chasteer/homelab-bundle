@@ -733,6 +733,231 @@ def generate_uptime_report() -> str:
         return f"❌ Ошибка генерации отчета: {str(e)}"
 
 
+@tool
+def analyze_incident_with_llm(incident_data: str) -> str:
+    """Анализ инцидента Uptime Kuma с использованием LLM и RAG.
+    
+    Args:
+        incident_data: JSON строка с данными об инциденте (монитор, статус, тип, URL, сообщение)
+    
+    Returns:
+        Детальный анализ инцидента с рекомендациями по устранению
+    """
+    try:
+        import json
+        from datetime import datetime
+        
+        # Парсим данные инцидента
+        data = json.loads(incident_data)
+        monitor_name = data.get('monitor_name', 'Unknown')
+        status = data.get('status', 'unknown')
+        monitor_type = data.get('monitor_type', 'unknown')
+        monitor_url = data.get('monitor_url', 'N/A')
+        message = data.get('message', 'No message')
+        timestamp = data.get('datetime', datetime.now().isoformat())
+        
+        # Ищем похожие случаи в RAG
+        from .rag import query_logs, add_log_to_rag
+        
+        # Поиск похожих инцидентов
+        similar_incidents = query_logs(f"incident {monitor_name} {status} {monitor_type}", k=3)
+        
+        # Формируем контекст для LLM
+        context = f"""
+ИНЦИДЕНТ:
+- Монитор: {monitor_name}
+- Статус: {status}
+- Тип: {monitor_type}
+- URL: {monitor_url}
+- Сообщение: {message}
+- Время: {timestamp}
+
+ПОХОЖИЕ СЛУЧАИ ИЗ ИСТОРИИ:
+"""
+        
+        if similar_incidents and not similar_incidents[0].get('error'):
+            for i, incident in enumerate(similar_incidents, 1):
+                context += f"\n{i}. {incident['document'][:200]}..."
+        else:
+            context += "\nПохожих случаев в истории не найдено."
+        
+        # Добавляем технический контекст
+        context += f"""
+
+ТЕХНИЧЕСКИЙ КОНТЕКСТ:
+- Тип монитора: {monitor_type}
+- Время инцидента: {timestamp}
+- Текущий статус: {status}
+
+ПРОСЬБА:
+Проведи детальный анализ инцидента и предоставь:
+1. Анализ возможных причин
+2. Пошаговые рекомендации по устранению
+3. Команды для диагностики
+4. Профилактические меры
+5. Оценку серьезности инцидента
+
+Используй технический опыт и найденную информацию для максимально точного анализа.
+"""
+        
+        # Записываем инцидент в базу данных
+        incident_log = f"""
+ИНЦИДЕНТ UPTIME KUMA:
+Монитор: {monitor_name}
+Статус: {status}
+Тип: {monitor_type}
+URL: {monitor_url}
+Сообщение: {message}
+Время: {timestamp}
+Анализ: Запрос на LLM анализ
+"""
+        
+        log_metadata = {
+            "source": "uptime_kuma_webhook",
+            "kind": "incident_analysis",
+            "monitor_name": monitor_name,
+            "status": status,
+            "monitor_type": monitor_type,
+            "timestamp": timestamp
+        }
+        
+        add_log_to_rag(incident_log, log_metadata)
+        
+        # Возвращаем контекст для LLM анализа
+        return f"""
+🔍 **ЗАПРОС НА LLM АНАЛИЗ ИНЦИДЕНТА**
+
+📊 **Данные инцидента:**
+- Монитор: {monitor_name}
+- Статус: {status}
+- Тип: {monitor_type}
+- URL: {monitor_url}
+- Сообщение: {message}
+- Время: {timestamp}
+
+📚 **Контекст для анализа:**
+{context}
+
+💡 **Следующий шаг:** Используй этот контекст для генерации детального анализа через LLM.
+"""
+        
+    except Exception as e:
+        return f"❌ Ошибка анализа инцидента: {str(e)}"
+
+@tool
+def search_incident_history(query: str) -> str:
+    """Поиск по истории инцидентов в базе данных.
+    
+    Args:
+        query: Поисковый запрос
+    
+    Returns:
+        Результаты поиска по истории инцидентов
+    """
+    try:
+        from .rag import query_logs
+        
+        # Поиск в логах
+        results = query_logs(query, k=5)
+        
+        if not results or results[0].get('error'):
+            return f"🔍 По запросу '{query}' ничего не найдено."
+        
+        # Формируем результат
+        response = f"🔍 **Результаты поиска по запросу: '{query}'**\n\n"
+        
+        for i, result in enumerate(results, 1):
+            metadata = result.get('metadata', {})
+            content = result.get('document', '')
+            
+            response += f"**{i}. {metadata.get('source', 'Unknown')}**\n"
+            response += f"Тип: {metadata.get('kind', 'Unknown')}\n"
+            if metadata.get('monitor_name'):
+                response += f"Монитор: {metadata['monitor_name']}\n"
+            if metadata.get('status'):
+                response += f"Статус: {metadata['status']}\n"
+            response += f"Содержание: {content[:200]}...\n\n"
+        
+        return response
+        
+    except Exception as e:
+        return f"❌ Ошибка поиска по истории: {str(e)}"
+
+@tool
+def get_incident_statistics() -> str:
+    """Получение статистики по инцидентам.
+    
+    Returns:
+        Статистика по инцидентам из базы данных
+    """
+    try:
+        from .rag import get_recent_context
+        
+        # Получаем недавний контекст
+        recent_context = get_recent_context(k=20)
+        
+        if not recent_context or recent_context[0].get('error'):
+            return "📊 Статистика недоступна."
+        
+        # Анализируем контекст
+        incident_count = 0
+        down_count = 0
+        up_count = 0
+        monitor_types = {}
+        sources = {}
+        
+        for item in recent_context:
+            if item.get('kind') == 'incident_analysis':
+                incident_count += 1
+                
+                # Анализируем содержимое
+                content = item.get('content', '')
+                if 'Status: down' in content:
+                    down_count += 1
+                elif 'Status: up' in content:
+                    up_count += 1
+                
+                # Типы мониторов
+                if 'docker' in content.lower():
+                    monitor_types['docker'] = monitor_types.get('docker', 0) + 1
+                elif 'http' in content.lower():
+                    monitor_types['http'] = monitor_types.get('http', 0) + 1
+                elif 'tcp' in content.lower():
+                    monitor_types['tcp'] = monitor_types.get('tcp', 0) + 1
+                
+                # Источники
+                source = item.get('source', 'unknown')
+                sources[source] = sources.get(source, 0) + 1
+        
+        # Формируем статистику
+        stats = f"""
+📊 **СТАТИСТИКА ПО ИНЦИДЕНТАМ**
+
+🔢 **Общее количество:** {incident_count}
+🔴 **Падения (down):** {down_count}
+🟢 **Восстановления (up):** {up_count}
+
+🖥️ **Типы мониторов:**
+"""
+        
+        for monitor_type, count in monitor_types.items():
+            stats += f"   • {monitor_type}: {count}\n"
+        
+        stats += f"\n📡 **Источники:**\n"
+        
+        for source, count in sources.items():
+            stats += f"   • {source}: {count}\n"
+        
+        if incident_count > 0:
+            uptime_percentage = (up_count / incident_count) * 100
+            stats += f"\n📈 **Процент восстановлений:** {uptime_percentage:.1f}%"
+        
+        return stats
+        
+    except Exception as e:
+        return f"❌ Ошибка получения статистики: {str(e)}"
+
+
 # Список всех инструментов для удобства импорта
 ALL_CUSTOM_TOOLS = [
     analyze_code_quality,
@@ -749,5 +974,8 @@ ALL_CUSTOM_TOOLS = [
     monitor_homelab_services,
     monitor_uptime_kuma,
     send_uptime_alert,
-    generate_uptime_report
+    generate_uptime_report,
+    analyze_incident_with_llm,
+    search_incident_history,
+    get_incident_statistics
 ]

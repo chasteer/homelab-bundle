@@ -65,7 +65,13 @@ def query(q: str, k: int = 5):
 def query_logs(q: str, k: int = 5):
     """Поиск в базе данных логов"""
     try:
-        engine = create_engine(DB_PATH, connect_args={"check_same_thread": False})
+        # Определяем параметры подключения в зависимости от типа БД
+        if DB_PATH.startswith('sqlite'):
+            connect_args = {"check_same_thread": False}
+        else:
+            connect_args = {}
+        
+        engine = create_engine(DB_PATH, connect_args=connect_args)
         with Session(engine) as session:
             # Простой поиск по содержимому логов
             query_stmt = select(LogDoc).where(LogDoc.content.contains(q))
@@ -102,7 +108,13 @@ def add_log_to_rag(log_content: str, log_metadata: Dict[str, Any]):
 def get_recent_context(k: int = 10):
     """Получение недавнего контекста из логов"""
     try:
-        engine = create_engine(DB_PATH, connect_args={"check_same_thread": False})
+        # Определяем параметры подключения в зависимости от типа БД
+        if DB_PATH.startswith('sqlite'):
+            connect_args = {"check_same_thread": False}
+        else:
+            connect_args = {}
+        
+        engine = create_engine(DB_PATH, connect_args=connect_args)
         with Session(engine) as session:
             query_stmt = select(LogDoc).order_by(LogDoc.id.desc()).limit(k)
             logs = session.exec(query_stmt).all()
