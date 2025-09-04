@@ -12,12 +12,12 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph.message import add_messages
 
 from .tools import ALL_CUSTOM_TOOLS
-from .llm import get_llm
+from .llm import get_gigachat
 from langchain_community.tools.tavily_search import TavilySearchResults
 
 
 # Инициализация LLM
-llm = get_llm()
+llm = get_gigachat()
 
 # Создаем список всех инструментов
 search_tool = TavilySearchResults(max_results=5)  # Увеличиваем количество результатов
