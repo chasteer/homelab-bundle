@@ -15,10 +15,10 @@ import json
 import re
 import ast
 from langchain_core.tools import tool
-from langchain_tavily import TavilySearch
+from langchain_community.tools.tavily_search import TavilySearchResults
 
 # Инициализация Tavily поиска
-tavily_search = TavilySearch(api_key=os.getenv("TAVILY_API_KEY"))
+tavily_search = TavilySearchResults(max_results=5)
 
 @tool
 def analyze_code_quality(code: str, language: str = "python") -> str:
@@ -516,6 +516,448 @@ def github_search(action: str, query: str, owner: str = "", repo: str = "") -> s
         return f"❌ Ошибка при работе с GitHub API: {str(e)}"
 
 
+@tool
+def monitor_homelab_services() -> str:
+    """Мониторинг состояния сервисов homelab: проверка портов, статуса контейнеров, логов."""
+    try:
+        import subprocess
+        import json
+        
+        result = []
+        result.append("🔍 **Мониторинг сервисов Homelab**\n")
+        
+        # Проверяем статус Docker контейнеров
+        try:
+            docker_ps = subprocess.run(
+                ["docker", "ps", "--format", "table {{.Names}}\t{{.Status}}\t{{.Ports}}"],
+                capture_output=True, text=True, timeout=10
+            )
+            
+            if docker_ps.returncode == 0:
+                result.append("🐳 **Docker контейнеры:**")
+                lines = docker_ps.stdout.strip().split('\n')[1:]  # Пропускаем заголовок
+                for line in lines:
+                    if line.strip():
+                        result.append(f"   {line}")
+            else:
+                result.append("❌ Ошибка получения статуса Docker")
+                
+        except Exception as e:
+            result.append(f"❌ Ошибка Docker: {str(e)}")
+        
+        # Получаем хост из переменных окружения
+        homelab_host = os.environ.get("HOMELAB_HOST", "localhost")
+        
+        # Проверяем основные порты homelab сервисов
+        ports_to_check = {
+            "torrserver": 8090,
+            "immich-server": 2283,
+            "vaultwarden": 8081,
+            "uptime-kuma": 3001,
+            "jellyfin": 8096,
+            "homelab-agent": 8000
+        }
+        
+        result.append("\n🌐 **Проверка портов:**")
+        for service, port in ports_to_check.items():
+            try:
+                import socket
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(2)
+                result_socket = sock.connect_ex((homelab_host, port))
+                sock.close()
+                
+                if result_socket == 0:
+                    result.append(f"   ✅ {service}:{port} - доступен")
+                else:
+                    result.append(f"   ❌ {service}:{port} - недоступен")
+            except Exception as e:
+                result.append(f"   ❓ {service}:{port} - ошибка проверки: {str(e)}")
+        
+        return "\n".join(result)
+        
+    except Exception as e:
+        return f"❌ Ошибка при мониторинге сервисов: {str(e)}"
+
+
+@tool
+def get_weather_info(city: str) -> str:
+    """Получить актуальную информацию о погоде в указанном городе.
+    
+    Args:
+        city: Название города (например: Москва, Санкт-Петербург, London)
+    """
+    try:
+        # Используем Tavily для поиска актуальной информации о погоде
+        query = f"погода {city} сегодня актуальная температура осадки"
+        result = tavily_search.invoke(query)
+        
+        if result and "❌" not in result:
+            return f"🌤️ **Погода в {city}:**\n\n{result}"
+        else:
+            # Если поиск не дал результатов, используем прямой поиск
+            fallback_query = f"weather {city} current temperature conditions"
+            fallback_result = tavily_search.invoke(fallback_query)
+            return f"🌤️ **Погода в {city}:**\n\n{fallback_result}"
+            
+    except Exception as e:
+        return f"❌ Ошибка получения информации о погоде: {str(e)}"
+
+
+@tool
+def monitor_uptime_kuma() -> str:
+    """Получить текущий статус мониторинга из Uptime Kuma и проанализировать состояние сервисов."""
+    try:
+        import requests
+        
+        # Получаем статус из Uptime Kuma
+        kuma_url = os.environ.get("UPTIME_KUMA_URL", "http://localhost:3001")
+        
+        # Получаем список мониторов
+        monitors_response = requests.get(f"{kuma_url}/api/monitor", timeout=10)
+        if monitors_response.status_code != 200:
+            return f"❌ Ошибка получения данных из Uptime Kuma: {monitors_response.status_code}"
+        
+        monitors = monitors_response.json()
+        
+        # Анализируем состояние
+        total_monitors = len(monitors)
+        down_monitors = [m for m in monitors if m.get('status') == 0]  # 0 = down
+        up_monitors = [m for m in monitors if m.get('status') == 1]    # 1 = up
+        maintenance_monitors = [m for m in monitors if m.get('status') == 2]  # 2 = maintenance
+        
+        result = []
+        result.append("📊 **Статус мониторинга Uptime Kuma**\n")
+        result.append(f"📈 **Общее количество мониторов:** {total_monitors}")
+        result.append(f"✅ **Работают:** {len(up_monitors)}")
+        result.append(f"❌ **Не работают:** {len(down_monitors)}")
+        result.append(f"🔧 **В обслуживании:** {len(maintenance_monitors)}")
+        
+        if down_monitors:
+            result.append("\n🚨 **ПРОБЛЕМНЫЕ СЕРВИСЫ:**")
+            for monitor in down_monitors:
+                result.append(f"   • {monitor.get('name', 'Неизвестно')} - {monitor.get('url', 'N/A')}")
+                result.append(f"     Последняя проверка: {monitor.get('lastCheck', 'N/A')}")
+        
+        if up_monitors:
+            result.append("\n✅ **РАБОТАЮЩИЕ СЕРВИСЫ:**")
+            for monitor in up_monitors[:5]:  # Показываем первые 5
+                result.append(f"   • {monitor.get('name', 'Неизвестно')}")
+        
+        return "\n".join(result)
+        
+    except Exception as e:
+        return f"❌ Ошибка при мониторинге Uptime Kuma: {str(e)}"
+
+
+@tool
+def send_uptime_alert(service_name: str, status: str, details: str) -> str:
+    """Отправить уведомление о проблеме в Uptime Kuma на VPS для дальнейшей обработки.
+    
+    Args:
+        service_name: Название сервиса с проблемой
+        status: Статус (down, error, warning)
+        details: Детали проблемы
+    """
+    try:
+        import requests
+        
+        # Данные для отправки
+        alert_data = {
+            "source": "homelab_agent",
+            "timestamp": datetime.now().isoformat(),
+            "service": service_name,
+            "status": status,
+            "details": details,
+            "host": os.environ.get("HOMELAB_HOST", "localhost")
+        }
+        
+        # Отправляем на VPS
+        vps_url = os.environ.get("VPS_WEBHOOK_URL", "https://your_vps_domain.com/api/uptime-alerts")
+        
+        response = requests.post(
+            vps_url,
+            json=alert_data,
+            headers={"Content-Type": "application/json"},
+            timeout=10
+        )
+        
+        if response.status_code == 200:
+            return f"✅ Уведомление отправлено на VPS для сервиса {service_name}"
+        else:
+            return f"❌ Ошибка отправки на VPS: {response.status_code} - {response.text}"
+            
+    except Exception as e:
+        return f"❌ Ошибка отправки уведомления: {str(e)}"
+
+
+@tool
+def generate_uptime_report() -> str:
+    """Сгенерировать полный отчет о состоянии системы и предложить действия по устранению проблем."""
+    try:
+        # Получаем данные мониторинга
+        monitoring_data = monitor_uptime_kuma()
+        
+        # Анализируем и генерируем рекомендации
+        report = []
+        report.append("📋 **ОТЧЕТ О СОСТОЯНИИ СИСТЕМЫ**\n")
+        report.append(monitoring_data)
+        
+        # Анализируем проблемы и предлагаем решения
+        if "❌" in monitoring_data:
+            report.append("\n🔧 **РЕКОМЕНДАЦИИ ПО УСТРАНЕНИЮ:**")
+            
+            if "uptime-kuma" in monitoring_data.lower():
+                report.append("   • Проверить логи Uptime Kuma: `docker logs uptime-kuma`")
+                report.append("   • Перезапустить контейнер: `docker restart uptime-kuma`")
+            
+            if "jellyfin" in monitoring_data.lower():
+                report.append("   • Проверить доступность медиа-файлов")
+                report.append("   • Проверить права доступа к папкам")
+            
+            if "immich" in monitoring_data.lower():
+                report.append("   • Проверить состояние базы данных PostgreSQL")
+                report.append("   • Проверить доступность Redis")
+            
+            if "vaultwarden" in monitoring_data.lower():
+                report.append("   • Проверить права доступа к папке данных")
+                report.append("   • Проверить конфигурацию")
+            
+            report.append("\n📞 **УВЕДОМЛЕНИЯ:**")
+            report.append("   • Отправлено на VPS для обработки")
+            report.append("   • Будет переслано в Telegram")
+        
+        return "\n".join(report)
+        
+    except Exception as e:
+        return f"❌ Ошибка генерации отчета: {str(e)}"
+
+
+@tool
+def analyze_incident_with_llm(incident_data: str) -> str:
+    """Анализ инцидента Uptime Kuma с использованием LLM и RAG.
+    
+    Args:
+        incident_data: JSON строка с данными об инциденте (монитор, статус, тип, URL, сообщение)
+    
+    Returns:
+        Детальный анализ инцидента с рекомендациями по устранению
+    """
+    try:
+        import json
+        from datetime import datetime
+        
+        # Парсим данные инцидента
+        data = json.loads(incident_data)
+        monitor_name = data.get('monitor_name', 'Unknown')
+        status = data.get('status', 'unknown')
+        monitor_type = data.get('monitor_type', 'unknown')
+        monitor_url = data.get('monitor_url', 'N/A')
+        message = data.get('message', 'No message')
+        timestamp = data.get('datetime', datetime.now().isoformat())
+        
+        # Ищем похожие случаи в RAG
+        from .rag import query_logs, add_log_to_rag
+        
+        # Поиск похожих инцидентов
+        similar_incidents = query_logs(f"incident {monitor_name} {status} {monitor_type}", k=3)
+        
+        # Формируем контекст для LLM
+        context = f"""
+ИНЦИДЕНТ:
+- Монитор: {monitor_name}
+- Статус: {status}
+- Тип: {monitor_type}
+- URL: {monitor_url}
+- Сообщение: {message}
+- Время: {timestamp}
+
+ПОХОЖИЕ СЛУЧАИ ИЗ ИСТОРИИ:
+"""
+        
+        if similar_incidents and not similar_incidents[0].get('error'):
+            for i, incident in enumerate(similar_incidents, 1):
+                context += f"\n{i}. {incident['document'][:200]}..."
+        else:
+            context += "\nПохожих случаев в истории не найдено."
+        
+        # Добавляем технический контекст
+        context += f"""
+
+ТЕХНИЧЕСКИЙ КОНТЕКСТ:
+- Тип монитора: {monitor_type}
+- Время инцидента: {timestamp}
+- Текущий статус: {status}
+
+ПРОСЬБА:
+Проведи детальный анализ инцидента и предоставь:
+1. Анализ возможных причин
+2. Пошаговые рекомендации по устранению
+3. Команды для диагностики
+4. Профилактические меры
+5. Оценку серьезности инцидента
+
+Используй технический опыт и найденную информацию для максимально точного анализа.
+"""
+        
+        # Записываем инцидент в базу данных
+        incident_log = f"""
+ИНЦИДЕНТ UPTIME KUMA:
+Монитор: {monitor_name}
+Статус: {status}
+Тип: {monitor_type}
+URL: {monitor_url}
+Сообщение: {message}
+Время: {timestamp}
+Анализ: Запрос на LLM анализ
+"""
+        
+        log_metadata = {
+            "source": "uptime_kuma_webhook",
+            "kind": "incident_analysis",
+            "monitor_name": monitor_name,
+            "status": status,
+            "monitor_type": monitor_type,
+            "timestamp": timestamp
+        }
+        
+        add_log_to_rag(incident_log, log_metadata)
+        
+        # Возвращаем контекст для LLM анализа
+        return f"""
+🔍 **ЗАПРОС НА LLM АНАЛИЗ ИНЦИДЕНТА**
+
+📊 **Данные инцидента:**
+- Монитор: {monitor_name}
+- Статус: {status}
+- Тип: {monitor_type}
+- URL: {monitor_url}
+- Сообщение: {message}
+- Время: {timestamp}
+
+📚 **Контекст для анализа:**
+{context}
+
+💡 **Следующий шаг:** Используй этот контекст для генерации детального анализа через LLM.
+"""
+        
+    except Exception as e:
+        return f"❌ Ошибка анализа инцидента: {str(e)}"
+
+@tool
+def search_incident_history(query: str) -> str:
+    """Поиск по истории инцидентов в базе данных.
+    
+    Args:
+        query: Поисковый запрос
+    
+    Returns:
+        Результаты поиска по истории инцидентов
+    """
+    try:
+        from .rag import query_logs
+        
+        # Поиск в логах
+        results = query_logs(query, k=5)
+        
+        if not results or results[0].get('error'):
+            return f"🔍 По запросу '{query}' ничего не найдено."
+        
+        # Формируем результат
+        response = f"🔍 **Результаты поиска по запросу: '{query}'**\n\n"
+        
+        for i, result in enumerate(results, 1):
+            metadata = result.get('metadata', {})
+            content = result.get('document', '')
+            
+            response += f"**{i}. {metadata.get('source', 'Unknown')}**\n"
+            response += f"Тип: {metadata.get('kind', 'Unknown')}\n"
+            if metadata.get('monitor_name'):
+                response += f"Монитор: {metadata['monitor_name']}\n"
+            if metadata.get('status'):
+                response += f"Статус: {metadata['status']}\n"
+            response += f"Содержание: {content[:200]}...\n\n"
+        
+        return response
+        
+    except Exception as e:
+        return f"❌ Ошибка поиска по истории: {str(e)}"
+
+@tool
+def get_incident_statistics() -> str:
+    """Получение статистики по инцидентам.
+    
+    Returns:
+        Статистика по инцидентам из базы данных
+    """
+    try:
+        from .rag import get_recent_context
+        
+        # Получаем недавний контекст
+        recent_context = get_recent_context(k=20)
+        
+        if not recent_context or recent_context[0].get('error'):
+            return "📊 Статистика недоступна."
+        
+        # Анализируем контекст
+        incident_count = 0
+        down_count = 0
+        up_count = 0
+        monitor_types = {}
+        sources = {}
+        
+        for item in recent_context:
+            if item.get('kind') == 'incident_analysis':
+                incident_count += 1
+                
+                # Анализируем содержимое
+                content = item.get('content', '')
+                if 'Status: down' in content:
+                    down_count += 1
+                elif 'Status: up' in content:
+                    up_count += 1
+                
+                # Типы мониторов
+                if 'docker' in content.lower():
+                    monitor_types['docker'] = monitor_types.get('docker', 0) + 1
+                elif 'http' in content.lower():
+                    monitor_types['http'] = monitor_types.get('http', 0) + 1
+                elif 'tcp' in content.lower():
+                    monitor_types['tcp'] = monitor_types.get('tcp', 0) + 1
+                
+                # Источники
+                source = item.get('source', 'unknown')
+                sources[source] = sources.get(source, 0) + 1
+        
+        # Формируем статистику
+        stats = f"""
+📊 **СТАТИСТИКА ПО ИНЦИДЕНТАМ**
+
+🔢 **Общее количество:** {incident_count}
+🔴 **Падения (down):** {down_count}
+🟢 **Восстановления (up):** {up_count}
+
+🖥️ **Типы мониторов:**
+"""
+        
+        for monitor_type, count in monitor_types.items():
+            stats += f"   • {monitor_type}: {count}\n"
+        
+        stats += f"\n📡 **Источники:**\n"
+        
+        for source, count in sources.items():
+            stats += f"   • {source}: {count}\n"
+        
+        if incident_count > 0:
+            uptime_percentage = (up_count / incident_count) * 100
+            stats += f"\n📈 **Процент восстановлений:** {uptime_percentage:.1f}%"
+        
+        return stats
+        
+    except Exception as e:
+        return f"❌ Ошибка получения статистики: {str(e)}"
+
+
 # Список всех инструментов для удобства импорта
 ALL_CUSTOM_TOOLS = [
     analyze_code_quality,
@@ -527,5 +969,13 @@ ALL_CUSTOM_TOOLS = [
     github_get_pr_files,
     github_get_file_content,
     github_search,
-    tavily_search
+    tavily_search,
+    get_weather_info,
+    monitor_homelab_services,
+    monitor_uptime_kuma,
+    send_uptime_alert,
+    generate_uptime_report,
+    analyze_incident_with_llm,
+    search_incident_history,
+    get_incident_statistics
 ]
