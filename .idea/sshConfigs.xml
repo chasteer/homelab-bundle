@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SshConfigs">
+    <configs>
+      <sshConfig authType="PASSWORD" host="45.129.2.154" id="860abdb6-094a-4758-86b2-c183a5c26e88" port="22" customName="moscov vps" nameFormat="CUSTOM" username="root" useOpenSSHConfig="true">
+        <option name="customName" value="moscov vps" />
+      </sshConfig>
+    </configs>
+  </component>
+</project>

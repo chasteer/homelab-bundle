@@ -5,6 +5,7 @@ require_once __DIR__ . '/telegram.php';
 header('Content-Type: application/json');
 
 try {
+
     $botStatus = checkBotStatus();
     
     echo json_encode([

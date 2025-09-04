@@ -231,3 +231,4 @@ class GitHubPoller:
 if __name__ == '__main__':
     poller = GitHubPoller()
     poller.run()
+

@@ -177,3 +177,4 @@ echo "🔧 Для запуска GitHub polling:"
 echo "   cd agent-web && sudo docker compose --profile polling up -d github-polling"
 echo ""
 echo "📚 Документация: agent-web/README.md"
+

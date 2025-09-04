@@ -1,7 +1,7 @@
 <?php
 /**
  * Homelab VPS API - Основной endpoint для приема уведомлений
- * 
+ *
  * Принимает уведомления от Homelab Agent и пересылает их в Telegram
  */
 
@@ -28,31 +28,58 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 try {
+    // Проверяем конфигурацию Telegram
+    if (empty(TELEGRAM_BOT_TOKEN) || empty(TELEGRAM_CHAT_ID)) {
+        throw new Exception('Telegram bot not configured. Please check .env file and TELEGRAM_BOT_TOKEN/TELEGRAM_CHAT_ID settings.');
+    }
+    
     // Получаем JSON данные
     $input = file_get_contents('php://input');
     $data = json_decode($input, true);
-    
+
     if (json_last_error() !== JSON_ERROR_NONE) {
         throw new Exception('Invalid JSON data');
     }
-    
+
     // Логируем входящий запрос
     logMessage('INFO', 'Received webhook', $data);
     
+    // Логируем конфигурацию (без токена)
+    logMessage('INFO', 'Telegram configuration', [
+        'bot_token_set' => !empty(TELEGRAM_BOT_TOKEN),
+        'chat_id_set' => !empty(TELEGRAM_CHAT_ID),
+        'chat_id' => TELEGRAM_CHAT_ID
+    ]);
+
     // Валидируем данные
     if (empty($data['source']) || empty($data['service']) || empty($data['status'])) {
         throw new Exception('Missing required fields: source, service, status');
     }
-    
+
     // Формируем сообщение для Telegram
     $message = formatTelegramMessage($data);
     
-    // Отправляем в Telegram
-    $telegramResponse = sendToTelegram($message);
+    // Проверяем, что сообщение не пустое
+    if (empty(trim($message))) {
+        throw new Exception('Generated message is empty. Check input data and configuration.');
+    }
     
+    // Логируем длину сообщения
+    logMessage('INFO', 'Message prepared for Telegram', [
+        'message_length' => strlen($message),
+        'message_preview' => substr($message, 0, 200) . (strlen($message) > 200 ? '...' : '')
+    ]);
+
+    // Отправляем в Telegram (используем sendSmartLongMessage для сообщений с анализом или длинных)
+    if (strlen($message) > 4000 || !empty($data['incident_analysis'])) {
+        $telegramResponse = sendSmartLongMessage($message);
+    } else {
+        $telegramResponse = sendToTelegram($message);
+    }
+
     // Логируем результат
     logMessage('INFO', 'Telegram response', $telegramResponse);
-    
+
     // Возвращаем успешный ответ
     http_response_code(200);
     echo json_encode([
@@ -61,14 +88,14 @@ try {
         'telegram_response' => $telegramResponse,
         'timestamp' => date('c')
     ]);
-    
+
 } catch (Exception $e) {
     // Логируем ошибку
     logMessage('ERROR', 'Webhook processing failed', [
         'error' => $e->getMessage(),
         'data' => $data ?? null
     ]);
-    
+
     // Возвращаем ошибку
     http_response_code(400);
     echo json_encode([
@@ -83,28 +110,47 @@ try {
  */
 function formatTelegramMessage($data): string
 {
+    // Проверяем обязательные поля
+    if (empty($data['status']) || empty($data['service'])) {
+        throw new Exception('Missing required fields for message formatting');
+    }
+    
     $emoji = getStatusEmoji($data['status']);
     $status = ucfirst($data['status']);
     $service = $data['service'];
     $host = $data['host'] ?? 'Unknown';
     $timestamp = $data['timestamp'] ?? date('c');
-    
+
+    // Основное сообщение
     $message = "{$emoji} **HOMELAB ALERT** {$emoji}\n\n";
     $message .= "**Service:** {$service}\n";
     $message .= "**Status:** {$status}\n";
     $message .= "**Host:** {$host}\n";
     $message .= "**Time:** " . formatTimestamp($timestamp) . "\n";
-    
-    // Добавляем детали если есть
+
+    // Добавляем важные детали (ограниченно)
     if (!empty($data['details'])) {
         $message .= "\n**Details:**\n";
-        foreach ($data['details'] as $key => $value) {
-            if (is_string($value) && !empty($value)) {
+        $importantKeys = ['monitor_url', 'monitor_type', 'message'];
+        foreach ($importantKeys as $key) {
+            if (isset($data['details'][$key]) && !empty($data['details'][$key])) {
+                $value = $data['details'][$key];
+                if (strlen($value) > 100) {
+                    $value = substr($value, 0, 97) . '...';
+                }
                 $message .= "• {$key}: {$value}\n";
             }
         }
     }
-    
+
+    // Добавляем анализ инцидента если есть
+    if (!empty($data['incident_analysis'])) {
+        $analysis = $data['incident_analysis'];
+        $message .= "\n**Analysis:**\n{$analysis}";
+    }
+
+    // НЕ обрезаем сообщение здесь - это сделает sendLongMessage если нужно
+
     return $message;
 }
 
@@ -120,7 +166,7 @@ function getStatusEmoji($status): string
         'paused' => '⏸️',
         'unknown' => '❓'
     ];
-    
+
     return $emojis[strtolower($status)] ?? '❓';
 }
 
@@ -141,17 +187,17 @@ function formatTimestamp($timestamp) {
  */
 function logMessage($level, $message, $context = []): void
 {
-    $logFile = __DIR__ . '/../logs/homelab-vps.log';
+    $logFile = __DIR__ . '/../../logs/homelab-vps.log';
     $timestamp = date('Y-m-d H:i:s');
     $contextStr = !empty($context) ? ' ' . json_encode($context) : '';
-    
+
     $logEntry = "[{$timestamp}] [{$level}] {$message}{$contextStr}\n";
-    
+
     // Создаем директорию для логов если её нет
     $logDir = dirname($logFile);
     if (!is_dir($logDir)) {
         mkdir($logDir, 0755, true);
     }
-    
+
     file_put_contents($logFile, $logEntry, FILE_APPEND | LOCK_EX);
 }

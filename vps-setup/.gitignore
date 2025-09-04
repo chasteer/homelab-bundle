@@ -1,0 +1,31 @@
+# Исключаем секретные файлы
+.env
+.env.*
+!.env.example
+
+# Логи
+logs/
+*.log
+
+# Временные файлы
+*.tmp
+*.temp
+*.bak
+*.backup
+
+# Кэш
+cache/
+*.cache
+
+# Системные файлы
+.DS_Store
+Thumbs.db
+
+# IDE файлы
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Docker
+docker-compose.override.yml

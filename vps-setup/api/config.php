@@ -8,10 +8,15 @@ $envFile = __DIR__ . '/../.env';
 if (file_exists($envFile)) {
     $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     foreach ($lines as $line) {
-        if (strpos($line, '=') !== false && strpos($line, '#') !== 0) {
+        if (str_contains($line, '=') && !str_starts_with($line, '#')) {
             list($key, $value) = explode('=', $line, 2);
-            $_ENV[trim($key)] = trim($value);
-            putenv(trim($key) . '=' . trim($value));
+            $cleanValue = trim($value);
+            // Убираем лишние кавычки если они есть
+            if (preg_match('/^"(.+)"$/', $cleanValue, $matches)) {
+                $cleanValue = $matches[1];
+            }
+            $_ENV[trim($key)] = $cleanValue;
+            putenv(trim($key) . '=' . $cleanValue);
         }
     }
 }
@@ -33,24 +38,27 @@ if (empty(TELEGRAM_CHAT_ID)) {
 }
 
 // Настройки безопасности
-define('ALLOWED_ORIGINS', [
+const ALLOWED_ORIGINS = [
     'http://localhost',
     'http://127.0.0.1',
-    'https://your-homelab-domain.com', // Замените на ваш домен
-    'http://192.168.1.200', // Ваш локальный IP
-]);
+    'https://babeshin.ru', // Замените на ваш домен
+];
 
 // Настройки логирования
-define('LOG_FILE', __DIR__ . '/../logs/homelab-vps.log');
-define('MAX_LOG_SIZE', 10 * 1024 * 1024); // 10 MB
-define('LOG_RETENTION_DAYS', 30);
+const LOG_FILE = __DIR__ . '/../../logs/homelab-vps.log';
+const MAX_LOG_SIZE = 10 * 1024 * 1024; // 10 MB
+const LOG_RETENTION_DAYS = 30;
 
 // Настройки API
-define('MAX_REQUEST_SIZE', 1024 * 1024); // 1 MB
-define('REQUEST_TIMEOUT', 30); // секунды
+const MAX_REQUEST_SIZE = 1024 * 1024; // 1 MB
+const REQUEST_TIMEOUT = 30; // секунды
 
 // Функция для проверки безопасности
-function validateRequest() {
+/**
+ * @throws Exception
+ */
+function validateRequest(): true
+{
     // Проверяем размер запроса
     if ($_SERVER['CONTENT_LENGTH'] > MAX_REQUEST_SIZE) {
         throw new Exception('Request too large');
@@ -71,7 +79,7 @@ function validateRequest() {
     // Проверяем API ключ если настроен
     if (!empty(API_SECRET_KEY)) {
         $authHeader = $_SERVER['HTTP_AUTHORIZATION'] ?? '';
-        if (strpos($authHeader, 'Bearer ' . API_SECRET_KEY) !== 0) {
+        if (!str_starts_with($authHeader, 'Bearer ' . API_SECRET_KEY)) {
             throw new Exception('Invalid API key');
         }
     }
@@ -80,7 +88,8 @@ function validateRequest() {
 }
 
 // Функция для очистки старых логов
-function cleanupOldLogs() {
+function cleanupOldLogs(): void
+{
     if (file_exists(LOG_FILE) && filesize(LOG_FILE) > MAX_LOG_SIZE) {
         $backupFile = LOG_FILE . '.' . date('Y-m-d-H-i-s') . '.bak';
         rename(LOG_FILE, $backupFile);
