@@ -18,7 +18,7 @@ echo "ENVIRONMENT: " . (defined('ENVIRONMENT') ? ENVIRONMENT : '❌ НЕ ОПР�
 // Проверяем типы данных
 if (!empty(TELEGRAM_CHAT_ID)) {
     echo "🔢 Анализ TELEGRAM_CHAT_ID:\n";
-    echo "Тип: " . gettype(TELEGRAM_CHAT_ID) . "\n";
+    echo "Тип: " . gettype(TELEGRAM_CHAT_ID) . "\n"
     echo "Длина: " . strlen(TELEGRAM_CHAT_ID) . "\n";
     echo "Значение: '" . TELEGRAM_CHAT_ID . "'\n";
     
