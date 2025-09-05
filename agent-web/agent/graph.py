@@ -12,6 +12,8 @@ from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph.message import add_messages
 
 from .tools import ALL_CUSTOM_TOOLS
+from .uptime_kuma_tools import UPTIME_KUMA_TOOLS
+from .uptime_kuma_socketio_tools import UPTIME_KUMA_SOCKETIO_TOOLS
 from .llm import get_gigachat
 from langchain_community.tools.tavily_search import TavilySearchResults
 
@@ -23,7 +25,7 @@ llm = get_gigachat()
 search_tool = TavilySearchResults(max_results=5)  # Увеличиваем количество результатов
 
 # Объединяем все инструменты
-tools = [search_tool] + ALL_CUSTOM_TOOLS
+tools = [search_tool] + ALL_CUSTOM_TOOLS + UPTIME_KUMA_TOOLS + UPTIME_KUMA_SOCKETIO_TOOLS
 
 # Системный промпт для агента
 SYSTEM_PROMPT = """Ты - Homelab Agent, умный помощник для управления домашней лабораторией.
