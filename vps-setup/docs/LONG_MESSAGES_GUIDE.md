@@ -69,7 +69,7 @@ php test_long_message.php
 
 **Service:** Test Service
 **Status:** Down
-**Host:** 192.168.1.200
+**Host:** your-local-ip
 **Time:** 2025-09-04 07:20:25
 ```
 
@@ -79,7 +79,7 @@ php test_long_message.php
 
 **Service:** Test Service
 **Status:** Down
-**Host:** 192.168.1.200
+**Host:** your-local-ip
 **Time:** 2025-09-04 07:20:25
 
 **Details:**

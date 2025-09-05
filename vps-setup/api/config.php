@@ -41,7 +41,7 @@ if (empty(TELEGRAM_CHAT_ID)) {
 const ALLOWED_ORIGINS = [
     'http://localhost',
     'http://127.0.0.1',
-    'https://babeshin.ru', // Замените на ваш домен
+    'https://your-domain.com', // Замените на ваш домен
 ];
 
 // Настройки логирования

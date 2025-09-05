@@ -10,8 +10,8 @@ import time
 import subprocess
 
 # Получаем настройки из переменных окружения
-KUMA_URL = os.environ.get("UPTIME_KUMA_URL", "http://192.168.1.200:3001")
-AGENT_WEBHOOK_URL = os.environ.get("AGENT_WEBHOOK_URL", "http://192.168.1.200:8000/api/webhook/uptime-kuma")
+KUMA_URL = os.environ.get("UPTIME_KUMA_URL", "http://your-local-ip:3001")
+AGENT_WEBHOOK_URL = os.environ.get("AGENT_WEBHOOK_URL", "http://your-local-ip:8000/api/webhook/uptime-kuma")
 
 def get_agent_internal_ip():
     """Получаем внутренний IP агента в Docker сети"""
@@ -141,7 +141,7 @@ def main():
     
     if not network_ok:
         print(f"\n⚠️  ВАЖНО: Используйте внутренний IP {agent_ip}, а не внешний!")
-        print(f"   Внешний IP 192.168.1.200 недоступен из контейнеров Docker.")
+        print(f"   Внешний IP your-local-ip недоступен из контейнеров Docker.")
     
     print("\n7. Нажмите 'Test' для проверки")
     print("8. Нажмите 'Save' для сохранения")

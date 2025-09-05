@@ -111,7 +111,7 @@ add_log_to_rag(incident_log, log_metadata)
     "hostname": null,
     "port": null
   },
-  "host": "192.168.1.200",
+  "host": "your-local-ip",
   "webhook_type": "uptime_kuma",
   "incident_analysis": "# Детальный анализ инцидента...",
   "incident_severity": "high",

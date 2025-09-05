@@ -123,12 +123,12 @@ tail -f /var/log/nginx/homelab-vps.error.log
 
 **Service:** TorrServer
 **Status:** Down
-**Host:** 192.168.1.200
+**Host:** your-local-ip
 **Time:** 2025-09-04 00:30:00 +00:00
 
 **Details:**
 • monitor_name: TorrServer
-• monitor_url: http://192.168.1.200:8090
+• monitor_url: http://your-local-ip:8090
 • alert_type: down
 • message: Service is down
 ```
@@ -139,12 +139,12 @@ tail -f /var/log/nginx/homelab-vps.error.log
 
 **Service:** TorrServer
 **Status:** Up
-**Host:** 192.168.1.200
+**Host:** your-local-ip
 **Time:** 2025-09-04 00:35:00 +00:00
 
 **Details:**
 • monitor_name: TorrServer
-• monitor_url: http://192.168.1.200:8090
+• monitor_url: http://your-local-ip:8090
 • alert_type: up
 • message: Service is up
 ```

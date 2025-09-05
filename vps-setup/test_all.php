@@ -61,7 +61,7 @@ try {
     $longMessage = "🚨 **HOMELAB ALERT** 🚨\n\n";
     $longMessage .= "**Service:** Test Service\n";
     $longMessage .= "**Status:** Down\n";
-    $longMessage .= "**Host:** 192.168.1.200\n";
+    $longMessage .= "**Host:** your-local-ip\n";
     $longMessage .= "**Time:** " . date('Y-m-d H:i:s T') . "\n\n";
     
     $longMessage .= "**Details:**\n";

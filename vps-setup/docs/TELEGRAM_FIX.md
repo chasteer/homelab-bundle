@@ -21,7 +21,7 @@ Failed to send message to Telegram
 
 ### 1. Создайте файл .env на VPS
 ```bash
-cd /var/www/babeshin.ru/htdocs
+cd /var/www/your-domain.com/htdocs
 cp env.example .env
 ```
 
