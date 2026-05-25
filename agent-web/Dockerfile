@@ -1,40 +1,49 @@
 FROM python:3.11-slim
 
-# Устанавливаем системные зависимости
 RUN apt-get update && apt-get install -y \
     curl \
+    bash \
+    ca-certificates \
+    git \
     docker.io \
     docker-compose \
-    git \
     netcat-openbsd \
     procps \
     && rm -rf /var/lib/apt/lists/*
 
-# Создаем пользователя для безопасности
-RUN useradd -m -s /bin/bash agent && \
-    usermod -aG docker agent
+RUN useradd -m -s /bin/bash agent && usermod -aG docker agent
 
-# Создаем рабочие директории
+# Официальный headless Cursor CLI → ~/.local/bin/agent
+# https://cursor.com/docs/cli/installation
+USER agent
+ENV HOME=/home/agent
+ENV PATH="/home/agent/.local/bin:${PATH}"
+RUN curl https://cursor.com/install -fsS | bash \
+    && test -x /home/agent/.local/bin/agent \
+    && /home/agent/.local/bin/agent --version
+
+USER root
 WORKDIR /app
-RUN mkdir -p /app/data /app/logs /app/github-config
 
-# Копируем requirements и устанавливаем Python зависимости
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Копируем код приложения
 COPY . .
+RUN mkdir -p /app/data/index /app/logs/incidents /app/github-config \
+    /home/agent/.cursor \
+    && touch /app/logs/homelab-agent.log \
+    && chown -R agent:agent /app /home/agent/.cursor
 
-# Создаем необходимые директории и файлы
-RUN mkdir -p /app/data/index && \
-    touch /app/logs/homelab-agent.log && \
-    chown -R agent:agent /app
-
-# Переключаемся на пользователя agent
 USER agent
+ENV CURSOR_CLI_PATH=/home/agent/.local/bin/agent
+ENV CURSOR_WORKSPACE=/app/homelab
+ENV CURSOR_AGENT_MODE=ask
+ENV CURSOR_TELEGRAM_MAX_CHARS=1400
+ENV CURSOR_INCIDENTS_DIR=/app/logs/incidents
 
-# Открываем порт
 EXPOSE 8000
 
-# Команда по умолчанию
+HEALTHCHECK --interval=30s --timeout=15s --start-period=90s --retries=3 \
+    CMD /home/agent/.local/bin/agent --version && curl -f http://localhost:8000/api/webhook/uptime-kuma/health
+
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]

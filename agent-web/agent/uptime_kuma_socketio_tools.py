@@ -270,12 +270,11 @@ def get_monitoring_dashboard_data() -> str:
         return f"❌ Ошибка при получении данных дашборда: {str(e)}"
 
 # Список всех Socket.io инструментов для экспорта
+# ОТКЛЮЧЕНО: Socket.IO API требует веб-аутентификации
+# Согласно официальной документации Uptime Kuma:
+# API ключи работают ТОЛЬКО с /metrics endpoint
+# Все остальные endpoints (включая Socket.IO) требуют веб-аутентификации
 UPTIME_KUMA_SOCKETIO_TOOLS = [
-    get_uptime_kuma_monitors_socketio,
-    get_monitor_details_socketio,
-    get_monitor_heartbeats_socketio,
-    get_uptime_statistics_socketio,
-    get_notifications_socketio,
-    test_uptime_kuma_socketio_connection,
-    get_monitoring_dashboard_data
+    # Все Socket.IO инструменты отключены
+    # Они требуют веб-аутентификации, которая недоступна для API ключей
 ]

@@ -2,7 +2,9 @@
 
 ## 📋 Обзор
 
-**Telegram Bot будет ТОЛЬКО получать уведомления от Homelab Agent через VPS и отправлять их в указанный чат. Никаких команд или интерактивности!**
+**Telegram Bot только получает уведомления** от Homelab Agent через VPS (в т.ч. краткий анализ от **Cursor CLI** при падении сервисов). Без команд и интерактивности.
+
+Цепочка: [agent-web/INCIDENT_FLOW.md](../agent-web/INCIDENT_FLOW.md) → `VPS_WEBHOOK_URL` → этот бот.
 
 ## 🚀 Шаг 1: Создание Telegram Bot
 

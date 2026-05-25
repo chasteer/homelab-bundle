@@ -1,139 +1,135 @@
-# 🏠 Homelab Bundle - Полнофункциональный домашний сервер
+# Homelab Bundle
 
-Полнофункциональный набор сервисов для домашнего сервера с автоматическим развертыванием, мониторингом и управлением через веб-интерфейс.
+Домашний сервер на Docker: медиа, фото, пароли, мониторинг и **автоматический разбор инцидентов** с уведомлениями в Telegram.
 
-## 🌟 Особенности
+## Возможности
 
-- **🎬 Медиа-сервисы**: Jellyfin, TorrServer
-- **📸 Фото-сервисы**: Immich с машинным обучением
-- **🔐 Безопасность**: Vaultwarden (Bitwarden)
-- **📊 Мониторинг**: Uptime Kuma
-- **🤖 Управление**: Homelab Agent с веб-интерфейсом
-- **🌐 Прокси**: Caddy/Traefik с HTTPS
-- **🔒 Безопасность**: UFW firewall
-- **📱 Внешний доступ**: ngrok/SSH туннели
+| Область | Сервисы |
+|---------|---------|
+| Медиа | Jellyfin, TorrServer |
+| Фото | Immich (+ PostgreSQL, Redis, ML) |
+| Пароли | Vaultwarden |
+| Мониторинг | Uptime Kuma |
+| Инциденты | **Homelab Incident Service** — Uptime Kuma → Cursor CLI → VPS → Telegram |
+| Прокси (опц.) | Caddy / Traefik |
+| Внешний доступ (опц.) | ngrok, SSH-туннель |
 
-## 🚀 Быстрый старт
+Чат-бот и LangGraph **удалены**. Агент (`agent-web`) — это webhook-сервис, не веб-чат.
+
+## Архитектура инцидентов
+
+```
+Uptime Kuma (падение сервиса)
+    → POST /api/webhook/uptime-kuma  (homelab-agent:8000)
+    → Cursor CLI (agent -p, анализ репозитория homelab)
+    → logs/incidents/*.md (полный отчёт)
+    → POST VPS /api/uptime-alerts
+    → Telegram (краткий текст, ≤1400 символов)
+```
+
+Подробнее: [agent-web/INCIDENT_FLOW.md](agent-web/INCIDENT_FLOW.md)
+
+## Быстрый старт
 
 ### Требования
-- Ubuntu 22.04+ или совместимый дистрибутив
+
+- Ubuntu 22.04+ (или аналог)
 - Docker и Docker Compose
-- Минимум 4GB RAM, 50GB свободного места
+- Пользователь в группе `docker`
+- 4 GB+ RAM, 50 GB+ диск
 
 ### Установка
-```bash
-# Клонируйте репозиторий
-git clone https://github.com/yourusername/homelab-bundle.git
-cd homelab-bundle
 
-# Запустите автоматическое развертывание
+```bash
+git clone <your-repo-url> home_lab
+cd home_lab
 ./scripts/deploy_all.sh
 ```
 
-### Автоматическое развертывание
-Скрипт `deploy_all.sh` автоматически выполнит:
-1. ✅ Подготовку системы
-2. 📁 Создание директорий
-3. ⚙️ Настройку переменных окружения
-4. 🐳 Развертывание основных сервисов
-5. 🤖 Развертывание Homelab Agent
-6. 🔒 Настройку UFW firewall
-7. 🌐 Настройку прокси (опционально)
-8. 🌍 Настройку внешнего доступа (опционально)
+Или по шагам:
 
-## 📋 Доступные сервисы
-
-| Сервис | Порт | Описание |
-|--------|------|----------|
-| 🌐 Jellyfin | 8096 | Медиа-сервер |
-| 📥 TorrServer | 8090 | Торрент-сервер |
-| 📸 Immich | 2283 | Фото-сервис с ML |
-| 🔐 Vaultwarden | 8081 | Менеджер паролей |
-| 📊 Uptime Kuma | 3001 | Мониторинг сервисов |
-| 🤖 Homelab Agent | 8000 | Веб-интерфейс управления |
-
-## 🛠️ Управление
-
-### Основные команды
 ```bash
-# Статус всех сервисов
-./scripts/check_status.sh
+./scripts/20_deploy_core.sh          # services/ — Jellyfin, Immich, Uptime Kuma, …
+./scripts/40_deploy_agent_web.sh     # agent-web — incident service
+```
 
-# Управление агентом
+### Сеть Docker
+
+Все сервисы в **внешней** сети `homelab`:
+
+```bash
+docker network create homelab   # если ещё нет
+```
+
+## Порты (типичные)
+
+| Сервис | Порт | Примечание |
+|--------|------|------------|
+| Jellyfin | 8096 | привязка к `HOMELAB_HOST` |
+| TorrServer | 8090 | |
+| Immich | 2283 | |
+| Vaultwarden | 8081 | |
+| Uptime Kuma | 3001 | |
+| Homelab Agent | 8000 | webhook API, не чат-UI |
+
+Порты задаются в `services/.env` и `agent-web/.env` через `HOMELAB_HOST` (LAN IP сервера).
+
+## Конфигурация
+
+### `services/.env`
+
+```env
+HOMELAB_HOST=192.168.1.200
+TZ=Europe/Moscow
+IMMICH_DB_PASSWORD=...
+```
+
+### `agent-web/.env`
+
+```env
+HOMELAB_HOST=192.168.1.200
+CURSOR_API_KEY=...                    # https://cursor.com/dashboard
+VPS_WEBHOOK_URL=https://your-vps/api/uptime-alerts
+UPTIME_KUMA_URL=http://uptime-kuma:3001
+UPTIME_KUMA_API=...                   # Prometheus API key, /metrics
+AGENT_WEBHOOK_URL=http://192.168.1.200:8000/api/webhook/uptime-kuma
+```
+
+Шаблон: [agent-web/env.example](agent-web/env.example)
+
+## Управление
+
+```bash
+./scripts/check_status.sh
 ./scripts/agent_manage.sh status
 ./scripts/agent_manage.sh logs
-./scripts/agent_manage.sh restart
 
-# Очистка Docker ресурсов
-./scripts/cleanup_docker.sh
+cd services && docker compose ps
+cd agent-web && docker compose ps
 ```
 
-### Docker Compose команды
+Проверка Cursor CLI в агенте:
+
 ```bash
-# Статус сервисов
-sudo docker compose -f services/docker-compose.yml ps
-
-# Статус агента
-sudo docker compose -f agent-web/docker-compose.yml ps
-
-# Логи сервисов
-sudo docker compose -f services/docker-compose.yml logs -f
+cd agent-web
+bash scripts/test_cursor_in_container.sh
 ```
 
-## 🔧 Конфигурация
+## Документация
 
-### Переменные окружения
-Создайте файл `services/.env` на основе `services/.env.example`:
-```bash
-# Основные настройки
-TZ=Europe/Moscow
-DOMAIN=your-domain.com
+| Документ | Описание |
+|----------|----------|
+| [agent-web/README.md](agent-web/README.md) | Incident Service, API, Docker |
+| [agent-web/INCIDENT_FLOW.md](agent-web/INCIDENT_FLOW.md) | Cursor CLI, переменные, тесты |
+| [agent-web/uptime_kuma_webhook_setup.md](agent-web/uptime_kuma_webhook_setup.md) | Webhook в Uptime Kuma |
+| [vps-setup/README.md](vps-setup/README.md) | VPS → Telegram |
+| [vps-setup/TELEGRAM_SETUP.md](vps-setup/TELEGRAM_SETUP.md) | Настройка бота |
+| [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Типичные ошибки |
+| [SECURITY.md](SECURITY.md) | Секреты, `.gitignore`, что не коммитить |
+| [GITHUB_WEBHOOK_SETUP.md](GITHUB_WEBHOOK_SETUP.md) | GitHub (опционально) |
 
-# API ключи
-GIGACHAT_CREDENTIALS=your_gigachat_credentials
-TAVILY_API_KEY=your_tavily_api_key
-GITHUB_TOKEN=your_github_token
-```
+Устаревшие (чат/LLM): см. пометки в `agent-web/GROQ_SETUP.md`, `LLM_SWITCHING_GUIDE.md`.
 
-### Настройка сети
-Все сервисы работают в сети Docker `homelab` с IP `your_local_ip`.
+## Лицензия
 
-## 🔒 Безопасность
-
-- **Firewall**: UFW с предустановленными правилами
-- **Изоляция**: Каждый сервис в отдельном контейнере
-- **Сеть**: Изолированная Docker сеть
-- **Прокси**: HTTPS с Let's Encrypt (опционально)
-
-## 📚 Документация
-
-- [📖 Руководство по развертыванию](DEPLOYMENT_GUIDE.md)
-- [🔧 Устранение неполадок](TROUBLESHOOTING.md)
-- [🌐 Интеграция с GitHub](GITHUB_INTEGRATION_GUIDE.md)
-- [🔒 Анализ безопасности](SECURITY_ANALYSIS.md)
-- [🚫 Блокировка сервисов](BLOCKED_SERVICES_GUIDE.md)
-
-## 🤝 Вклад в проект
-
-1. Fork репозитория
-2. Создайте ветку для новой функции
-3. Внесите изменения
-4. Создайте Pull Request
-
-## 📄 Лицензия
-
-MIT License - см. файл [LICENSE](LICENSE)
-
-## 🆘 Поддержка
-
-- 📖 [Документация](docs/)
-- 🐛 [Issues](https://github.com/yourusername/homelab-bundle/issues)
-- 💬 [Discussions](https://github.com/yourusername/homelab-bundle/discussions)
-
-## ⭐ Звезды
-
-Если проект вам понравился, поставьте звезду! ⭐
-
----
-
-**Создано с ❤️ для домашних серверов**
+MIT — см. [LICENSE](LICENSE).

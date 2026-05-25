@@ -14,6 +14,12 @@ class UptimeKumaAPI:
         self.api_key = os.getenv("UPTIME_KUMA_API")
         self.session = requests.Session()
         
+        # Отключаем прокси для Uptime Kuma (он в локальной сети)
+        self.session.proxies = {
+            'http': None,
+            'https': None
+        }
+        
         # Настройка аутентификации
         if self.api_key:
             # API Key Authentication (HTTP Basic Auth)
@@ -98,25 +104,12 @@ class UptimeKumaAPI:
         
         return monitors
     
-    def get_monitor_status(self, monitor_id: int) -> Optional[Dict]:
-        """Получает статус конкретного монитора"""
-        return self._make_request(f"/api/status-page/{monitor_id}")
-    
     def get_metrics(self) -> Optional[str]:
         """Получает метрики в формате Prometheus"""
-        return self._make_request("/metrics")
-    
-    def get_badge(self, monitor_id: int, badge_type: str = "uptime") -> Optional[str]:
-        """Получает бейдж для монитора"""
-        return self._make_request(f"/api/badge/{badge_type}/{monitor_id}")
-    
-    def get_status_page_data(self, slug: str) -> Optional[Dict]:
-        """Получает данные публичной страницы статуса"""
-        return self._make_request(f"/api/status-page/{slug}")
-    
-    def get_heartbeat_data(self, monitor_id: int, limit: int = 100) -> Optional[List[Dict]]:
-        """Получает данные heartbeat для монитора"""
-        return self._make_request(f"/api/status-page/heartbeat/{monitor_id}?limit={limit}")
+        response = self._make_request("/metrics")
+        if response and isinstance(response, dict) and "content" in response:
+            return response["content"]
+        return None
 
 def get_uptime_kuma_api() -> UptimeKumaAPI:
     """Получает экземпляр API Uptime Kuma"""
@@ -134,19 +127,16 @@ def test_uptime_kuma_connection() -> Dict[str, Any]:
     }
     
     try:
-        # Тестируем базовое подключение
-        response = api._make_request("/api/status-page")
+        # Тестируем базовое подключение через /metrics endpoint
+        response = api._make_request("/metrics")
         if response:
             result["connected"] = True
             result["api_available"] = True
             
-            # Пытаемся получить количество мониторов
-            if isinstance(response, dict) and "monitorList" in response:
-                monitors = response["monitorList"]
-                if isinstance(monitors, dict):
-                    result["monitors_count"] = len(monitors)
-                elif isinstance(monitors, list):
-                    result["monitors_count"] = len(monitors)
+            # Получаем количество мониторов из метрик
+            monitors = api.get_monitors()
+            if monitors:
+                result["monitors_count"] = len(monitors)
             
     except Exception as e:
         result["error"] = str(e)

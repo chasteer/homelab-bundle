@@ -516,68 +516,6 @@ def github_search(action: str, query: str, owner: str = "", repo: str = "") -> s
         return f"❌ Ошибка при работе с GitHub API: {str(e)}"
 
 
-@tool
-def monitor_homelab_services() -> str:
-    """Мониторинг состояния сервисов homelab: проверка портов, статуса контейнеров, логов."""
-    try:
-        import subprocess
-        import json
-        
-        result = []
-        result.append("🔍 **Мониторинг сервисов Homelab**\n")
-        
-        # Проверяем статус Docker контейнеров
-        try:
-            docker_ps = subprocess.run(
-                ["docker", "ps", "--format", "table {{.Names}}\t{{.Status}}\t{{.Ports}}"],
-                capture_output=True, text=True, timeout=10
-            )
-            
-            if docker_ps.returncode == 0:
-                result.append("🐳 **Docker контейнеры:**")
-                lines = docker_ps.stdout.strip().split('\n')[1:]  # Пропускаем заголовок
-                for line in lines:
-                    if line.strip():
-                        result.append(f"   {line}")
-            else:
-                result.append("❌ Ошибка получения статуса Docker")
-                
-        except Exception as e:
-            result.append(f"❌ Ошибка Docker: {str(e)}")
-        
-        # Получаем хост из переменных окружения
-        homelab_host = os.environ.get("HOMELAB_HOST", "localhost")
-        
-        # Проверяем основные порты homelab сервисов
-        ports_to_check = {
-            "torrserver": 8090,
-            "immich-server": 2283,
-            "vaultwarden": 8081,
-            "uptime-kuma": 3001,
-            "jellyfin": 8096,
-            "homelab-agent": 8000
-        }
-        
-        result.append("\n🌐 **Проверка портов:**")
-        for service, port in ports_to_check.items():
-            try:
-                import socket
-                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-                sock.settimeout(2)
-                result_socket = sock.connect_ex((homelab_host, port))
-                sock.close()
-                
-                if result_socket == 0:
-                    result.append(f"   ✅ {service}:{port} - доступен")
-                else:
-                    result.append(f"   ❌ {service}:{port} - недоступен")
-            except Exception as e:
-                result.append(f"   ❓ {service}:{port} - ошибка проверки: {str(e)}")
-        
-        return "\n".join(result)
-        
-    except Exception as e:
-        return f"❌ Ошибка при мониторинге сервисов: {str(e)}"
 
 
 @tool
@@ -604,50 +542,6 @@ def get_weather_info(city: str) -> str:
         return f"❌ Ошибка получения информации о погоде: {str(e)}"
 
 
-@tool
-def monitor_uptime_kuma() -> str:
-    """Получить текущий статус мониторинга из Uptime Kuma и проанализировать состояние сервисов."""
-    try:
-        import requests
-        
-        # Получаем статус из Uptime Kuma
-        kuma_url = os.environ.get("UPTIME_KUMA_URL", "http://localhost:3001")
-        
-        # Получаем список мониторов
-        monitors_response = requests.get(f"{kuma_url}/api/monitor", timeout=10)
-        if monitors_response.status_code != 200:
-            return f"❌ Ошибка получения данных из Uptime Kuma: {monitors_response.status_code}"
-        
-        monitors = monitors_response.json()
-        
-        # Анализируем состояние
-        total_monitors = len(monitors)
-        down_monitors = [m for m in monitors if m.get('status') == 0]  # 0 = down
-        up_monitors = [m for m in monitors if m.get('status') == 1]    # 1 = up
-        maintenance_monitors = [m for m in monitors if m.get('status') == 2]  # 2 = maintenance
-        
-        result = []
-        result.append("📊 **Статус мониторинга Uptime Kuma**\n")
-        result.append(f"📈 **Общее количество мониторов:** {total_monitors}")
-        result.append(f"✅ **Работают:** {len(up_monitors)}")
-        result.append(f"❌ **Не работают:** {len(down_monitors)}")
-        result.append(f"🔧 **В обслуживании:** {len(maintenance_monitors)}")
-        
-        if down_monitors:
-            result.append("\n🚨 **ПРОБЛЕМНЫЕ СЕРВИСЫ:**")
-            for monitor in down_monitors:
-                result.append(f"   • {monitor.get('name', 'Неизвестно')} - {monitor.get('url', 'N/A')}")
-                result.append(f"     Последняя проверка: {monitor.get('lastCheck', 'N/A')}")
-        
-        if up_monitors:
-            result.append("\n✅ **РАБОТАЮЩИЕ СЕРВИСЫ:**")
-            for monitor in up_monitors[:5]:  # Показываем первые 5
-                result.append(f"   • {monitor.get('name', 'Неизвестно')}")
-        
-        return "\n".join(result)
-        
-    except Exception as e:
-        return f"❌ Ошибка при мониторинге Uptime Kuma: {str(e)}"
 
 
 @tool
@@ -695,13 +589,15 @@ def send_uptime_alert(service_name: str, status: str, details: str) -> str:
 def generate_uptime_report() -> str:
     """Сгенерировать полный отчет о состоянии системы и предложить действия по устранению проблем."""
     try:
-        # Получаем данные мониторинга
-        monitoring_data = monitor_uptime_kuma()
+        # Получаем данные мониторинга из Uptime Kuma
+        from .uptime_kuma_tools import get_uptime_kuma_monitors
+        monitoring_data = get_uptime_kuma_monitors.invoke({})
         
         # Анализируем и генерируем рекомендации
         report = []
         report.append("📋 **ОТЧЕТ О СОСТОЯНИИ СИСТЕМЫ**\n")
-        report.append(monitoring_data)
+        report.append("📊 **Данные из Uptime Kuma:**")
+        report.append(str(monitoring_data))
         
         # Анализируем проблемы и предлагаем решения
         if "❌" in monitoring_data:
@@ -971,8 +867,6 @@ ALL_CUSTOM_TOOLS = [
     github_search,
     tavily_search,
     get_weather_info,
-    monitor_homelab_services,
-    monitor_uptime_kuma,
     send_uptime_alert,
     generate_uptime_report,
     analyze_incident_with_llm,

@@ -1,316 +1,147 @@
-# 🤖 Homelab Agent
+# Homelab Incident Service
 
-Интеллектуальный агент для домашнего сервера на основе LangGraph и GigaChat с интеграцией GitHub, поиском в интернете и мониторингом сервисов. **Полностью контейнеризирован** для работы в Docker.
+Webhook-сервис для homelab: при падении монитора **Uptime Kuma** запускается **Cursor CLI**, краткий анализ уходит в **Telegram** через VPS. Полный отчёт сохраняется на диске агента.
 
-## ✨ Возможности
+> **Не чат.** Эндпоинт `/api/chat` и веб-UI удалены.
 
-- **💬 Чат с ИИ** - общение с агентом на естественном языке
-- **🔍 Поиск в интернете** - интеграция с Tavily для получения актуальной информации
-- **🐙 GitHub интеграция** - автоматический анализ PR/MR, поиск репозиториев
-- **📊 Мониторинг сервисов** - проверка состояния Docker контейнеров, портов, ресурсов
-- **📚 RAG система** - контекстный поиск по загруженным документам и логам
-- **📋 Логирование** - сохранение всех запросов и ответов в PostgreSQL
-- **🌐 Веб-интерфейс** - удобный UI для взаимодействия с агентом
-- **🐳 Docker контейнеры** - полная контейнеризация с доступом к Docker socket
+## Поток данных
 
-## 🚀 Быстрый старт
+```
+Uptime Kuma
+  → POST /api/webhook/uptime-kuma
+  → agent/cursor_incident.py  (subprocess: agent -p --trust)
+  → logs/incidents/YYYYMMDD_HHMMSS_<monitor>_down.md
+  → POST VPS_WEBHOOK_URL
+  → Telegram
+```
 
-### 1. Подготовка окружения
+## Быстрый старт
 
-Убедитесь, что у вас запущены основные сервисы homelab:
+### 1. Core-сервисы и сеть
 
 ```bash
-# Запуск основных сервисов
+cd /path/to/home_lab
 ./scripts/20_deploy_core.sh
-
-# Проверка сети homelab
 docker network ls | grep homelab
 ```
 
-### 2. Настройка переменных окружения
-
-Создайте файл `.env` на основе `.env.example`:
+### 2. Переменные окружения
 
 ```bash
 cd agent-web
-cp .env.example .env
+cp env.example .env
+nano .env
 ```
 
-Заполните необходимые переменные:
+Обязательно:
 
 ```env
-# GigaChat API
-GIGACHAT_CREDENTIALS=your_gigachat_credentials_here
-
-# Tavily Search API
-TAVILY_API_KEY=your_tavily_api_key_here
-
-# GitHub API
-GITHUB_TOKEN=your_github_token_here
-GITHUB_WEBHOOK_SECRET=your_webhook_secret_here
-
-# База данных агента
-AGENT_DB_PASSWORD=agent123
-
-# Настройки GitHub polling
-POLLING_INTERVAL=300
+HOMELAB_HOST=192.168.1.200
+CURSOR_API_KEY=your_key_from_cursor_dashboard
+VPS_WEBHOOK_URL=https://your-vps.example.com/api/uptime-alerts
+UPTIME_KUMA_API=your_uptime_kuma_prometheus_key
 ```
 
-### 3. Запуск агента
+### 3. Сборка и запуск
 
 ```bash
-# Автоматическое развертывание
-./scripts/40_deploy_agent_web.sh
-
-# Или вручную
 docker compose up -d --build
 ```
 
-Агент будет доступен по адресу: http://your_local_ip:8000
+Пользователь должен быть в группе `docker` (`sudo usermod -aG docker $USER`).
 
-## 🔧 Управление агентом
-
-### Основные команды
+### 4. Проверка
 
 ```bash
-# Статус
-./scripts/agent_manage.sh status
+# health (используйте HOMELAB_HOST, не localhost, если порт так привязан)
+curl -s http://192.168.1.200:8000/api/health | python3 -m json.tool
 
-# Логи
-./scripts/agent_manage.sh logs
-
-# Перезапуск
-./scripts/agent_manage.sh restart
-
-# Обновление
-./scripts/agent_manage.sh update
-
-# Проверка здоровья
-./scripts/agent_manage.sh health
-
-# Статус всех сервисов
-./scripts/agent_manage.sh services
+bash scripts/test_cursor_in_container.sh
 ```
 
-### Docker Compose команды
+## API
+
+| Метод | Путь | Назначение |
+|-------|------|------------|
+| GET | `/` | Список эндпоинтов |
+| GET | `/api/health` | DB + Cursor CLI + API key |
+| POST | `/api/webhook/uptime-kuma` | Алерт от Uptime Kuma |
+| POST | `/api/webhook/uptime-kuma/test-cursor` | Тест анализа |
+| GET | `/api/webhook/uptime-kuma/health` | Health webhook |
+| GET | `/api/logs` | Логи PostgreSQL |
+| GET | `/api/services` | `docker ps` из контейнера |
+| POST | `/webhook/github` | Логирование PR (без LLM-анализа) |
+
+## Cursor CLI
+
+- Устанавливается в образ: `curl https://cursor.com/install -fsS | bash`
+- Бинарник: `/home/agent/.local/bin/agent`
+- Репозиторий homelab: `/app/homelab` (volume `..:/app/homelab`)
+- Режим по умолчанию: `ask` (краткий ответ)
+- Формат вывода: `json` (парсинг поля `result`)
+
+Детали: [INCIDENT_FLOW.md](INCIDENT_FLOW.md)
+
+### Переменные Cursor
+
+| Переменная | По умолчанию |
+|------------|--------------|
+| `CURSOR_API_KEY` | — (обязательно) |
+| `CURSOR_CLI_PATH` | `/home/agent/.local/bin/agent` |
+| `CURSOR_WORKSPACE` | `/app/homelab` |
+| `CURSOR_AGENT_MODE` | `ask` |
+| `CURSOR_OUTPUT_FORMAT` | `json` |
+| `CURSOR_TELEGRAM_MAX_CHARS` | `1400` |
+| `CURSOR_CLI_TIMEOUT` | `300` |
+| `CURSOR_INCIDENT_REQUIRED` | `true` |
+
+## Uptime Kuma
+
+- API-ключ: только endpoint **`/metrics`** (см. [wiki API Keys](https://github.com/louislam/uptime-kuma/wiki/API-Keys))
+- Webhook в UI: `http://<HOMELAB_HOST>:8000/api/webhook/uptime-kuma`
+- Настройка UI: [uptime_kuma_webhook_setup.md](uptime_kuma_webhook_setup.md)
+
+Socket.IO / веб-логин в агенте **не используются**.
+
+## Контейнеры
+
+| Сервис | Имя | Описание |
+|--------|-----|----------|
+| agent | homelab-agent | FastAPI + Cursor CLI |
+| agent-db | homelab-agent-db | PostgreSQL |
+| github-polling | homelab-github-polling | Опционально (`--profile polling`) |
+
+## Команды
 
 ```bash
-# Статус сервисов
 docker compose ps
-
-# Логи агента
 docker compose logs -f agent
-
-# Логи базы данных
-docker compose logs -f agent-db
-
-# Перезапуск
-docker compose restart
-
-# Остановка
-docker compose down
+docker compose restart agent
+docker compose exec agent /home/agent/.local/bin/agent --version
 ```
 
-## 🔧 Настройка GitHub Polling
+## Устранение неполадок
 
-### Автоматическая проверка PR/MR
+| Симптом | Решение |
+|---------|---------|
+| `permission denied` docker.sock | `sudo usermod -aG docker $USER`, `newgrp docker` |
+| `curl localhost:8000` не работает | Используйте `HOMELAB_HOST` из `.env` |
+| Пустой ответ Cursor CLI | `CURSOR_API_KEY`, пересборка образа, `CURSOR_OUTPUT_FORMAT=json` |
+| Нет Telegram | Проверьте `VPS_WEBHOOK_URL`, логи VPS, [vps-setup/README.md](../vps-setup/README.md) |
+| Uptime Kuma не достучался | Оба контейнера в сети `homelab`, URL с IP хоста |
 
-GitHub polling работает как отдельный контейнер:
+Скрипт диагностики: `bash scripts/test_cursor_in_container.sh`
 
-```bash
-# Запуск GitHub polling
-docker compose --profile polling up -d github-polling
+Общие проблемы homelab: [../TROUBLESHOOTING.md](../TROUBLESHOOTING.md)
 
-# Проверка статуса
-docker compose --profile polling ps github-polling
+## Устаревшая документация
 
-# Логи
-docker compose --profile polling logs -f github-polling
-```
+Следующие файлы относятся к **удалённому** чат-агенту (GigaChat/Groq/LangGraph):
 
-### Конфигурация репозиториев
+- `GROQ_SETUP.md`, `LLM_SWITCHING_GUIDE.md`, `LLM_INCIDENT_ANALYSIS.md`, `PROXY_SETUP.md`
 
-Редактируйте файл `github-config/polling.conf`:
+Актуальный анализ инцидентов — только **Cursor CLI** ([INCIDENT_FLOW.md](INCIDENT_FLOW.md)).
 
-```bash
-# Вход в контейнер для редактирования
-docker compose exec github-polling bash
+## Лицензия
 
-# Или редактируйте локально (файл монтируется)
-nano github-config/polling.conf
-```
-
-Формат конфигурации:
-```
-owner/repo:branch:webhook_url:secret
-```
-
-## 🛠️ Использование
-
-### Веб-интерфейс
-
-1. Откройте http://your_local_ip:8000
-2. Загрузите файлы для RAG (логи, compose файлы, документация)
-3. Задавайте вопросы агенту на естественном языке
-4. Мониторьте статус всех сервисов homelab
-
-### Примеры запросов
-
-```
-- Проверь состояние сервисов
-- Объясни логи qbittorrent
-- Найди информацию о Docker Compose best practices
-- Анализ кода owner/repo pr_number
-- Сгенерируй docker-compose для nginx
-- Мониторинг использования диска
-- Статус сети homelab
-```
-
-### API endpoints
-
-- `POST /api/chat` - отправка сообщения агенту
-- `POST /api/upload` - загрузка файлов для RAG
-- `GET /api/logs` - получение логов
-- `GET /api/health` - проверка здоровья сервиса
-- `GET /api/services` - статус всех сервисов homelab
-- `POST /webhook/github` - GitHub webhook для анализа PR
-
-## 🏗️ Архитектура
-
-### Компоненты
-
-- **`app.py`** - FastAPI приложение с веб-интерфейсом
-- **`agent/graph.py`** - LangGraph граф агента
-- **`agent/llm.py`** - интеграция с GigaChat
-- **`agent/tools.py`** - набор инструментов агента
-- **`agent/rag.py`** - RAG система для контекстного поиска
-- **`github_polling.py`** - GitHub polling сервис
-
-### Контейнеры
-
-- **`agent`** - основной контейнер агента
-- **`agent-db`** - PostgreSQL база данных
-- **`github-polling`** - GitHub polling сервис (опционально)
-
-### Инструменты агента
-
-- `monitor_homelab_services` - мониторинг состояния сервисов
-- `docker_compose_lint` - анализ Docker Compose файлов
-- `port_conflict_scan` - проверка конфликтов портов
-- `github_search` - поиск в GitHub
-- `analyze_code_quality` - анализ качества кода
-- `tavily_search` - поиск в интернете
-- `get_system_info` - системная информация
-
-## 📊 Мониторинг
-
-### Проверка состояния
-
-```bash
-# Статус Docker контейнеров
-docker compose ps
-
-# Проверка портов
-netstat -tlnp | grep -E ':(8080|2283|8081|3001|8096|8000)'
-
-# Логи агента
-docker compose logs -f agent
-
-# Статус GitHub polling
-docker compose --profile polling logs -f github-polling
-```
-
-### Логи и отладка
-
-- **Логи агента**: `docker compose logs -f agent`
-- **Логи базы данных**: `docker compose logs -f agent-db`
-- **Логи GitHub polling**: `docker compose --profile polling logs -f github-polling`
-- **База данных**: PostgreSQL в контейнере `agent-db`
-- **RAG индекс**: `/app/data/index` в контейнере
-
-## 🔒 Безопасность
-
-- **Docker socket** монтируется в режиме read-only
-- **Переменные окружения** для чувствительных данных
-- **Локальный доступ** по умолчанию (your_local_ip)
-- **PostgreSQL** с отдельным пользователем
-- **GitHub webhook** подписывается секретным ключом
-
-## 🚨 Устранение неполадок
-
-### Частые проблемы
-
-1. **GigaChat не отвечает**
-   - Проверьте `GIGACHAT_CREDENTIALS` в `.env`
-   - Убедитесь в доступности API
-
-2. **GitHub polling не работает**
-   - Проверьте `GITHUB_TOKEN` в `.env`
-   - Убедитесь в правах доступа к репозиториям
-   - Проверьте логи: `docker compose --profile polling logs github-polling`
-
-3. **RAG не индексирует файлы**
-   - Проверьте права на запись в `/app/data/index`
-   - Убедитесь в корректности ChromaDB
-
-4. **Docker сеть недоступна**
-   - Убедитесь, что сеть `homelab` создана
-   - Запустите сначала: `./scripts/20_deploy_core.sh`
-
-5. **База данных не подключается**
-   - Проверьте статус контейнера `agent-db`
-   - Проверьте переменную `AGENT_DB_PASSWORD`
-
-### Логи и диагностика
-
-```bash
-# Проверка статуса всех сервисов
-docker compose ps
-
-# Проверка сети homelab
-docker network inspect homelab
-
-# Тест подключения к агенту
-curl -f http://your_local_ip:8000/api/health
-
-# Проверка переменных окружения
-docker compose exec agent env | grep -E "(GIGACHAT|TAVILY|GITHUB)"
-
-# Вход в контейнер агента
-docker compose exec agent bash
-
-# Вход в базу данных
-docker compose exec agent-db psql -U agent -d homelab_agent
-```
-
-## 📈 Развитие
-
-### Планируемые улучшения
-
-- [ ] Интеграция с Prometheus для метрик
-- [ ] Поддержка других LLM провайдеров
-- [ ] Расширенная аналитика кода
-- [ ] Автоматическое исправление проблем
-- [ ] Интеграция с CI/CD системами
-- [ ] Мониторинг производительности контейнеров
-
-### Вклад в проект
-
-1. Fork репозитория
-2. Создайте feature branch
-3. Внесите изменения
-4. Создайте Pull Request
-
-## 📄 Лицензия
-
-MIT License - см. файл LICENSE для деталей.
-
-## 🤝 Поддержка
-
-- **Issues**: GitHub Issues
-- **Discussions**: GitHub Discussions
-- **Wiki**: GitHub Wiki
-
----
-
-**Homelab Agent** - ваш интеллектуальный помощник для домашнего сервера в Docker! 🐳🚀
+MIT

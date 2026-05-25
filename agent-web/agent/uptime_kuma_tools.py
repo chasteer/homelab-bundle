@@ -91,62 +91,18 @@ def test_uptime_kuma_api() -> str:
     except Exception as e:
         return f"❌ Ошибка при тестировании API: {str(e)}"
 
-@tool
-def get_monitor_badge(monitor_id: int, badge_type: str = "uptime") -> str:
-    """
-    Получает бейдж для конкретного монитора.
-    
-    Args:
-        monitor_id (int): ID монитора
-        badge_type (str): Тип бейджа (uptime, response, status)
-    
-    Returns:
-        str: URL бейджа или сообщение об ошибке
-    """
-    try:
-        api = get_uptime_kuma_api()
-        badge = api.get_badge(monitor_id, badge_type)
-        
-        if badge is None:
-            return f"❌ Не удалось получить бейдж для монитора {monitor_id}"
-        
-        if isinstance(badge, dict) and "content" in badge:
-            return badge["content"]
-        else:
-            return str(badge)
-            
-    except Exception as e:
-        return f"❌ Ошибка при получении бейджа: {str(e)}"
-
-@tool
-def get_monitor_heartbeat(monitor_id: int, limit: int = 10) -> str:
-    """
-    Получает последние heartbeat данные для монитора.
-    
-    Args:
-        monitor_id (int): ID монитора
-        limit (int): Количество записей (по умолчанию 10)
-    
-    Returns:
-        str: JSON строка с данными heartbeat
-    """
-    try:
-        api = get_uptime_kuma_api()
-        heartbeats = api.get_heartbeat_data(monitor_id, limit)
-        
-        if heartbeats is None:
-            return f"❌ Не удалось получить heartbeat данные для монитора {monitor_id}"
-        
-        return json.dumps(heartbeats, indent=2, ensure_ascii=False)
-        
-    except Exception as e:
-        return f"❌ Ошибка при получении heartbeat данных: {str(e)}"
+# Удалены неработающие инструменты:
+# - get_monitor_badge (требует веб-аутентификации)
+# - get_monitor_heartbeat (требует веб-аутентификации)
+# 
+# Согласно официальной документации Uptime Kuma:
+# API ключи работают ТОЛЬКО с /metrics endpoint
+# Все остальные endpoints требуют веб-аутентификации
 
 # Список всех инструментов для экспорта
+# Только рабочие инструменты, которые используют /metrics endpoint
 UPTIME_KUMA_TOOLS = [
     get_uptime_kuma_monitors,
     get_uptime_kuma_metrics,
-    test_uptime_kuma_api,
-    get_monitor_badge,
-    get_monitor_heartbeat
+    test_uptime_kuma_api
 ]

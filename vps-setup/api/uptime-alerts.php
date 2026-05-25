@@ -143,9 +143,24 @@ function formatTelegramMessage($data): string
         }
     }
 
-    // Добавляем анализ инцидента если есть
+    // Источник анализа (cursor_cli / basic / recovery)
+    if (!empty($data['analysis_type'])) {
+        $src = $data['analysis_type'] === 'cursor_cli' ? 'Cursor CLI' : $data['analysis_type'];
+        $message .= "\n**Analysis source:** {$src}\n";
+    }
+    if (!empty($data['cursor_report_path'])) {
+        $message .= "**Report file:** {$data['cursor_report_path']}\n";
+    }
+
+    // Анализ (уже сжат агентом; доп. лимит для Telegram)
     if (!empty($data['incident_analysis'])) {
         $analysis = $data['incident_analysis'];
+        $maxAnalysis = 1600;
+        if (function_exists('mb_strlen') && mb_strlen($analysis) > $maxAnalysis) {
+            $analysis = mb_substr($analysis, 0, $maxAnalysis - 20) . "\n…";
+        } elseif (strlen($analysis) > $maxAnalysis) {
+            $analysis = substr($analysis, 0, $maxAnalysis - 20) . "\n…";
+        }
         $message .= "\n**Analysis:**\n{$analysis}";
     }
 

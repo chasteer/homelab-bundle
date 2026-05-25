@@ -1,3 +1,5 @@
+# Cursor CLI (`agent`) устанавливается в образ при сборке (cursor.com/install)
+
 name: homelab-agent
 
 services:
@@ -9,25 +11,30 @@ services:
       - "${HOMELAB_HOST:-your_local_ip}:8000:8000"
     environment:
       - TZ=${TZ:-UTC}
-      - GIGACHAT_CREDENTIALS=${GIGACHAT_CREDENTIALS}
-      - GROQ_API_KEY=${GROQ_API_KEY}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - PROXY_URL=${PROXY_URL}
-      - TAVILY_API_KEY=${TAVILY_API_KEY}
-      - GITHUB_TOKEN=${GITHUB_TOKEN}
-      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET}
-      - AGENT_DB=postgresql://agent:agent123@agent-db:5432/homelab_agent
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
+      - GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:-}
+      - AGENT_DB=postgresql://agent:${AGENT_DB_PASSWORD}@agent-db:5432/homelab_agent
       - RAG_DB_DIR=/app/data/index
       - HOMELAB_HOST=${HOMELAB_HOST:-localhost}
       - UPTIME_KUMA_URL=${UPTIME_KUMA_URL:-http://uptime-kuma:3001}
-      - UPTIME_KUMA_API=${UPTIME_KUMA_API}
-      - UPTIME_KUMA_USERNAME=${UPTIME_KUMA_USERNAME:-admin}
-      - UPTIME_KUMA_PASSWORD=${UPTIME_KUMA_PASSWORD:-admin}
+      - UPTIME_KUMA_API=${UPTIME_KUMA_API:-}
       - AGENT_WEBHOOK_URL=${AGENT_WEBHOOK_URL:-http://localhost:8000/api/webhook/uptime-kuma}
       - VPS_WEBHOOK_URL=${VPS_WEBHOOK_URL:-https://your_vps_domain.com/api/uptime-alerts}
+      - CURSOR_API_KEY=${CURSOR_API_KEY:-}
+      - CURSOR_CLI_PATH=${CURSOR_CLI_PATH:-/home/agent/.local/bin/agent}
+      - CURSOR_WORKSPACE=${CURSOR_WORKSPACE:-/app/homelab}
+      - CURSOR_AGENT_MODEL=${CURSOR_AGENT_MODEL:-}
+      - CURSOR_AGENT_MODE=${CURSOR_AGENT_MODE:-ask}
+      - CURSOR_TELEGRAM_MAX_CHARS=${CURSOR_TELEGRAM_MAX_CHARS:-1400}
+      - CURSOR_OUTPUT_FORMAT=${CURSOR_OUTPUT_FORMAT:-json}
+      - CURSOR_CLI_TIMEOUT=${CURSOR_CLI_TIMEOUT:-300}
+      - CURSOR_INCIDENT_ENABLED=${CURSOR_INCIDENT_ENABLED:-true}
+      - CURSOR_INCIDENT_REQUIRED=${CURSOR_INCIDENT_REQUIRED:-true}
+      - CURSOR_INCIDENTS_DIR=/app/logs/incidents
     volumes:
       - ./data:/app/data
       - ./logs:/app/logs
+      - ..:/app/homelab:rw
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /srv:/srv:ro
     networks:
@@ -48,7 +55,7 @@ services:
     environment:
       - POSTGRES_DB=homelab_agent
       - POSTGRES_USER=agent
-      - POSTGRES_PASSWORD=${AGENT_DB_PASSWORD:-agent123}
+      - POSTGRES_PASSWORD=${AGENT_DB_PASSWORD:?Задайте AGENT_DB_PASSWORD в .env}
       - TZ=${TZ:-UTC}
     volumes:
       - agent-db-data:/var/lib/postgresql/data
@@ -67,7 +74,7 @@ services:
     command: python /app/github_polling.py
     environment:
       - TZ=${TZ:-UTC}
-      - GITHUB_TOKEN=${GITHUB_TOKEN}
+      - GITHUB_TOKEN=${GITHUB_TOKEN:-}
       - POLLING_INTERVAL=${POLLING_INTERVAL:-300}
       - AGENT_URL=http://agent:8000
     volumes:

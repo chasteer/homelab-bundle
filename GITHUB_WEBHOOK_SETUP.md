@@ -124,17 +124,11 @@ GITHUB_WEBHOOK_SECRET=your_secret_here
 2. Агент автоматически получит уведомление
 3. Проанализирует код и добавит комментарий
 
-### Ручной режим (через веб-интерфейс)
+### Ручной режим
 
-Отправьте сообщение агенту:
-```
-анализ кода owner/repo pr_number
-```
+> **Чат-агент удалён.** `POST /api/chat` больше не доступен.
 
-Например:
-```
-анализ кода microsoft/vscode 12345
-```
+Webhook `POST /webhook/github` только **логирует** события PR в PostgreSQL. Для анализа кода используйте Cursor IDE или расширьте `app.py` под Cursor CLI.
 
 ## 🔍 Что анализируется
 
@@ -181,7 +175,7 @@ GITHUB_WEBHOOK_SECRET=your_secret_here
 - Успешные анализы: `kind="webhook"`
 - Ошибки: `kind="webhook_error"`
 
-Просмотреть логи можно через веб-интерфейс агента.
+Просмотреть логи: `GET http://<HOMELAB_HOST>:8000/api/logs?kind=webhook` или `docker compose -f agent-web/docker-compose.yml exec agent-db psql -U agent -d homelab_agent`.
 
 ## 🔄 Автоматизация туннелирования
 
@@ -257,9 +251,10 @@ PR_LIST=$(curl -s -H "Authorization: token $GITHUB_TOKEN" \
 
 for pr in $PR_LIST; do
     # Запускаем анализ
-    curl -X POST "http://localhost:8000/api/chat" \
+    # Чат-агент удалён; webhook только логирует PR:
+    curl -X POST "http://<HOMELAB_HOST>:8000/webhook/github" \
         -H "Content-Type: application/json" \
-        -d '{"message": "анализ кода owner/repo '$pr'"}'
+        -d '{"action":"opened","pull_request":{...},"repository":{...}}'
 done
 ```
 

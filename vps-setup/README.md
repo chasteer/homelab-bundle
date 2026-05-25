@@ -6,7 +6,7 @@
 
 - ✅ **Автоматические уведомления** о статусе сервисов
 - ✅ **Умная разбивка длинных сообщений** (Telegram limit: 4096 символов)
-- ✅ **Анализ инцидентов** с рекомендациями по устранению
+- ✅ **Краткий анализ инцидентов** от Cursor CLI (через Homelab Agent)
 - ✅ **Безопасная конфигурация** через переменные окружения
 - ✅ **Детальное логирование** всех операций
 - ✅ **Автоматическое исправление** проблем с конфигурацией
@@ -96,20 +96,26 @@ Content-Type: application/json
 
 {
   "source": "homelab_uptime_kuma",
-  "service": "Service Name",
+  "service": "Jellyfin",
   "status": "down",
-  "host": "192.168.1.100",
+  "host": "192.168.1.200",
+  "incident_analysis": "**Причина:** ...\n**Проверить:** ...",
+  "analysis_type": "cursor_cli",
+  "cursor_report_path": "/app/logs/incidents/....md",
   "details": {
-    "monitor_url": "http://example.com",
-    "message": "Service is down"
+    "monitor_url": "http://192.168.1.200:8096",
+    "monitor_type": "http",
+    "message": "..."
   }
 }
 ```
 
+Поле `incident_analysis` уже **сжато** на стороне агента (~1400 символов). VPS дополнительно обрезает анализ до ~1600 символов перед отправкой в Telegram.
+
 ### Автоматическая разбивка сообщений
-Система автоматически разбивает длинные сообщения на части:
+Система разбивает длинные сообщения на части:
 - Сообщения > 4000 символов
-- Сообщения с анализом инцидентов
+- Сообщения с `incident_analysis` (если агент прислал слишком длинный текст)
 - Умная разбивка по смысловым блокам
 - Задержка 1 секунда между частями
 
@@ -170,9 +176,11 @@ php check_config.php
 
 ## 📚 Документация
 
-- [TELEGRAM_FIX.md](docs/TELEGRAM_FIX.md) - Подробная инструкция по исправлению
-- [QUICK_FIX.md](docs/QUICK_FIX.md) - Быстрое исправление проблем
-- [LONG_MESSAGES_GUIDE.md](docs/LONG_MESSAGES_GUIDE.md) - Руководство по длинным сообщениям
+- [TELEGRAM_SETUP.md](TELEGRAM_SETUP.md) — настройка бота
+- [TELEGRAM_FIX.md](docs/TELEGRAM_FIX.md) — исправление типичных ошибок
+- [QUICK_FIX.md](docs/QUICK_FIX.md) — быстрые исправления
+- [LONG_MESSAGES_GUIDE.md](docs/LONG_MESSAGES_GUIDE.md) — длинные сообщения
+- [../agent-web/INCIDENT_FLOW.md](../agent-web/INCIDENT_FLOW.md) — Cursor CLI на стороне homelab
 
 ## 🤝 Поддержка
 

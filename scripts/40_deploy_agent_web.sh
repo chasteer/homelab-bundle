@@ -21,35 +21,26 @@ if [ ! -f ".env" ]; then
     
     # Создаем .env для агента
     cat > .env <<EOF
-# Конфигурация Homelab Agent
+# Homelab Incident Service — см. agent-web/env.example
 
-# Временная зона
 TZ=${TZ:-Europe/Moscow}
+HOMELAB_HOST=${HOMELAB_HOST:-your_local_ip}
 
-# GigaChat API
-GIGACHAT_CREDENTIALS=${GIGACHAT_CREDENTIALS:-}
+CURSOR_API_KEY=
+CURSOR_WORKSPACE=/app/homelab
+CURSOR_AGENT_MODE=ask
+CURSOR_TELEGRAM_MAX_CHARS=1400
+CURSOR_OUTPUT_FORMAT=json
 
-# Tavily Search API
-TAVILY_API_KEY=${TAVILY_API_KEY:-}
+VPS_WEBHOOK_URL=https://your_vps_domain.com/api/uptime-alerts
+UPTIME_KUMA_URL=http://uptime-kuma:3001
+UPTIME_KUMA_API=
+AGENT_WEBHOOK_URL=http://${HOMELAB_HOST:-your_local_ip}:8000/api/webhook/uptime-kuma
 
-# GitHub API
 GITHUB_TOKEN=${GITHUB_TOKEN:-}
 GITHUB_WEBHOOK_SECRET=${GITHUB_WEBHOOK_SECRET:-}
-
-# База данных агента
-AGENT_DB_PASSWORD=agent123
-
-# Настройки GitHub polling
+AGENT_DB_PASSWORD=CHANGE_ME_strong_password
 POLLING_INTERVAL=300
-
-# Настройки сервера
-HOST=0.0.0.0
-PORT=8000
-DEBUG=false
-
-# Логирование
-LOG_LEVEL=INFO
-LOG_FILE=/app/logs/homelab-agent.log
 EOF
     
     echo "✅ .env файл создан на основе services/.env"
@@ -58,18 +49,17 @@ fi
 # Проверяем переменные окружения
 source .env
 
-if [ -z "${GIGACHAT_CREDENTIALS:-}" ]; then
-    echo "❌ GIGACHAT_CREDENTIALS не задан в .env"
-    exit 1
+if [ -z "${CURSOR_API_KEY:-}" ]; then
+    echo "⚠️  CURSOR_API_KEY не задан — анализ инцидентов не будет работать"
+    echo "    Получите ключ: https://cursor.com/dashboard"
 fi
 
-if [ -z "${TAVILY_API_KEY:-}" ]; then
-    echo "❌ TAVILY_API_KEY не задан в .env"
-    exit 1
+if [ -z "${VPS_WEBHOOK_URL:-}" ] || [ "${VPS_WEBHOOK_URL}" = "https://your_vps_domain.com/api/uptime-alerts" ]; then
+    echo "⚠️  Задайте VPS_WEBHOOK_URL в .env для Telegram"
 fi
 
 if [ -z "${GITHUB_TOKEN:-}" ]; then
-    echo "⚠️  GITHUB_TOKEN не задан. GitHub интеграция будет недоступна"
+    echo "⚠️  GITHUB_TOKEN не задан (опционально, для polling)"
 fi
 
 # Создаем необходимые директории
@@ -95,7 +85,7 @@ sleep 15
 # Проверяем статус
 if sudo docker compose ps | grep -q "Up"; then
     echo "✅ Homelab Agent успешно запущен!"
-    echo "🌐 Веб-интерфейс: http://${HOMELAB_HOST:-your_local_ip}:8000"
+    echo "🌐 API: http://${HOMELAB_HOST:-your_local_ip}:8000/api/health"
     echo "📊 Статус: $(sudo docker compose ps)"
     
     # Проверяем здоровье
@@ -125,4 +115,4 @@ echo ""
 echo "🔧 Для запуска GitHub polling:"
 echo "   sudo docker compose --profile polling up -d github-polling"
 echo ""
-echo "📚 Документация: README.md"
+echo "📚 Документация: agent-web/README.md, agent-web/INCIDENT_FLOW.md"
