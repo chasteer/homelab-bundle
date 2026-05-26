@@ -21,8 +21,9 @@ immich.home.arpa {
 vaultwarden.home.arpa {
 	encode gzip
 	reverse_proxy http://vaultwarden:80 {
+		header_up Host {host}
 		header_up X-Real-IP {remote_host}
-		header_up X-Forwarded-For {remote_host}
+		header_up X-Forwarded-For {proxy_add_x_forwarded_for}
 		header_up X-Forwarded-Proto {scheme}
 	}
 	tls internal

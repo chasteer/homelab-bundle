@@ -45,6 +45,32 @@ cd services && docker compose up -d --force-recreate vaultwarden
 
 5. Открывать в браузере: **https://vaultwarden.home.arpa** (не `http://192.168.1.200:8081`).
 
+### Расширение Bitwarden в Chrome
+
+Ошибка *«this server was not configured to provide HTTPS»* почти всегда из‑за **неправильного Server URL** в расширении:
+
+| Неправильно | Правильно |
+|-------------|-----------|
+| `http://192.168.1.200:8081` | `https://vaultwarden.home.arpa` |
+| `https://vaultwarden.home.arpa/` (слэш в конце) | без завершающего `/` |
+
+В расширении: **Настройки → Самостоятельный хостинг → URL сервера** — только `https://vaultwarden.home.arpa`. Поля «Custom environment» оставьте пустыми.
+
+Сертификат Caddy должен быть доверен **в Chrome** (Linux: `chrome://certificate-manager` или NSS, не только системный store).
+
+Обновите Vaultwarden (Chrome часто опережает API):
+
+```bash
+cd services && docker compose pull vaultwarden && docker compose up -d --force-recreate vaultwarden
+```
+
+Проверка API (должен быть JSON, не HTML 404):
+
+```bash
+curl -sk -X POST https://vaultwarden.home.arpa/identity/accounts/prelogin \
+  -H 'Content-Type: application/json' -d '{"email":"you@example.com"}'
+```
+
 ### «Подключение не защищено» — это нормально для `tls internal`
 
 Caddy шифрует трафик **своим локальным CA**. Для браузера это не публичный Let's Encrypt, пока вы не доверите корню.

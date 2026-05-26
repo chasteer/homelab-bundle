@@ -101,7 +101,8 @@ services:
           - redis
     restart: unless-stopped
   vaultwarden:
-    image: vaultwarden/server:latest
+    # :latest отстаёт; Chrome-расширение Bitwarden требует свежий API (prelogin/password)
+    image: vaultwarden/server:1.36.0
     container_name: vaultwarden
     networks: [homelab]
     ports: ["${HOMELAB_HOST:-your_local_ip}:8081:80"]
