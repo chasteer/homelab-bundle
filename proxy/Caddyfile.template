@@ -1,4 +1,4 @@
-# Генерируется scripts/30_deploy_proxy_caddy.sh — не редактируйте Caddyfile вручную после deploy.
+# Генерируется scripts/30_deploy_proxy_caddy.sh
 {
 	local_certs
 {{ACME_EMAIL_BLOCK}}
@@ -35,7 +35,6 @@ kuma.home.arpa {
 }
 
 agent.home.arpa {
-	encode gzip
 	reverse_proxy http://homelab-agent:8000
 	tls internal
 }
@@ -43,5 +42,28 @@ agent.home.arpa {
 jellyfin.home.arpa {
 	encode gzip
 	reverse_proxy http://jellyfin:8096
+	tls internal
+}
+
+it-tools.home.arpa {
+	encode gzip
+	reverse_proxy http://it-tools:80
+	tls internal
+}
+
+dozzle.home.arpa {
+	encode gzip
+	reverse_proxy http://dozzle:8080
+	tls internal
+}
+
+homeassistant.home.arpa {
+	encode gzip
+	reverse_proxy http://homeassistant:8123 {
+		header_up Host {host}
+		header_up X-Forwarded-Host {host}
+		header_up X-Forwarded-Proto {scheme}
+		header_up X-Forwarded-For {remote_host}
+	}
 	tls internal
 }

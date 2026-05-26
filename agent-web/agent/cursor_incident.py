@@ -177,16 +177,25 @@ def _telegram_max_chars() -> int:
 
 def build_incident_prompt(monitor_name: str, status: str, details: Dict[str, Any]) -> str:
     max_chars = _telegram_max_chars()
+    container = details.get("container_name") or monitor_name
+    logs = (details.get("container_logs") or "").strip()
+    logs_block = (
+        f"\nDOCKER LOGS (container `{container}`, tail):\n```\n{logs}\n```\n"
+        if logs
+        else ""
+    )
     return f"""Homelab alert. Write ONLY the final report for Telegram — Russian, markdown.
 
 DATA:
 - monitor: {monitor_name}
 - status: {status}
+- container: {container}
 - type: {details.get('monitor_type', 'unknown')}
 - url: {details.get('monitor_url', 'N/A')}
 - message: {details.get('message', 'N/A')}
-
-Repo: Docker Compose in services/, agent-web/, container names like jellyfin, uptime-kuma, immich-server.
+{logs_block}
+Repo: Docker Compose in services/, agent-web/, proxy/ (Caddy).
+Use the docker logs above as primary evidence for root cause.
 
 RULES (mandatory):
 - Max {max_chars} characters total. Stop when limit reached.

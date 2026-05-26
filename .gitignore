@@ -42,6 +42,9 @@ __pycache__/
 *$py.class
 .codegraph/
 
+# Caddy (генерируемое)
+proxy/Caddyfile
+
 # --- Системное ---
 .DS_Store
 Thumbs.db

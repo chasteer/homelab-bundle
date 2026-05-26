@@ -3,9 +3,12 @@
 ## Поток
 
 1. **Uptime Kuma** → `POST /api/webhook/uptime-kuma`
-2. При статусе **down/error** → **`agent -p --trust --mode ask`** (анализ репозитория `/app/homelab`)
-3. **Полный отчёт** → `logs/incidents/*.md` на сервере
-4. **Краткий текст** (≤ `CURSOR_TELEGRAM_MAX_CHARS`) → **VPS** → **Telegram**
+2. При статусе **down/error** → **`docker logs`** проблемного контейнера (`agent/container_logs.py`)
+3. → **`agent -p --trust --mode ask`** (логи + репозиторий `/app/homelab`)
+4. **Полный отчёт** → `logs/incidents/*.md` на сервере
+5. **Краткий текст** (≤ `CURSOR_TELEGRAM_MAX_CHARS`) → **VPS** → **Telegram**
+
+Переменные: `CONTAINER_LOG_TAIL` (по умолчанию 150), `CONTAINER_LOG_MAX_CHARS`. Ручной просмотр логов: https://dozzle.home.arpa
 
 ## Формат ответа Cursor (для Telegram)
 

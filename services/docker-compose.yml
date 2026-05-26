@@ -129,4 +129,30 @@ services:
       - /srv/homelab/uptime-kuma:/app/data
       - /var/run/docker.sock:/var/run/docker.sock:ro
     restart: unless-stopped
+  it-tools:
+    image: corentinth/it-tools:latest
+    container_name: it-tools
+    networks: [homelab]
+    restart: unless-stopped
+  dozzle:
+    image: amir20/dozzle:latest
+    container_name: dozzle
+    networks: [homelab]
+    environment:
+      - DOZZLE_LEVEL=info
+      - DOZZLE_TAILSIZE=300
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: homeassistant
+    networks: [homelab]
+    ports:
+      - "${HOMELAB_HOST:-your_local_ip}:8123:8123"
+    environment:
+      - TZ=${TZ}
+    volumes:
+      - /srv/homeassistant:/config
+    restart: unless-stopped
 
