@@ -9,9 +9,11 @@
 | Медиа | Jellyfin, TorrServer |
 | Фото | Immich (+ PostgreSQL, Redis, ML) |
 | Пароли | Vaultwarden |
-| Мониторинг | Uptime Kuma |
-| Инциденты | **Homelab Incident Service** — Uptime Kuma → Cursor CLI → VPS → Telegram |
-| Прокси (опц.) | Caddy / Traefik |
+| Мониторинг | Uptime Kuma, Dozzle |
+| Умный дом | Home Assistant |
+| Утилиты | it-tools |
+| Доступ | Caddy (HTTPS на `*.home.arpa`) |
+| Инциденты | Uptime Kuma → логи контейнера → Cursor CLI → Telegram |
 | Внешний доступ (опц.) | ngrok, SSH-туннель |
 
 Чат-бот и LangGraph **удалены**. Агент (`agent-web`) — это webhook-сервис, не веб-чат.
@@ -21,6 +23,7 @@
 ```
 Uptime Kuma (падение сервиса)
     → POST /api/webhook/uptime-kuma  (homelab-agent:8000)
+    → docker logs проблемного контейнера
     → Cursor CLI (agent -p, анализ репозитория homelab)
     → logs/incidents/*.md (полный отчёт)
     → POST VPS /api/uptime-alerts
@@ -43,14 +46,17 @@ Uptime Kuma (падение сервиса)
 ```bash
 git clone <your-repo-url> home_lab
 cd home_lab
-./scripts/deploy_all.sh
+./setup.sh              # проверки + полная установка
+./setup.sh --check      # только проверить, ничего не менять
 ```
 
-Или по шагам:
+По шагам (если не используете `setup.sh`):
 
 ```bash
-./scripts/20_deploy_core.sh          # services/ — Jellyfin, Immich, Uptime Kuma, …
-./scripts/40_deploy_agent_web.sh     # agent-web — incident service
+./scripts/write_env.sh
+./scripts/20_deploy_core.sh
+./scripts/30_deploy_proxy_caddy.sh
+./scripts/40_deploy_agent_web.sh
 ```
 
 ### Сеть Docker
@@ -71,8 +77,9 @@ docker network create homelab   # если ещё нет
 | Vaultwarden | 8081 | |
 | Uptime Kuma | 3001 | |
 | Homelab Agent | 8000 | webhook API, не чат-UI |
+| Caddy HTTPS | 443 | `*.home.arpa` |
 
-Порты задаются в `services/.env` и `agent-web/.env` через `HOMELAB_HOST` (LAN IP сервера).
+Веб-UI удобнее открывать по **https://имя.home.arpa** (см. [docs/HOMELAB_STACK.md](docs/HOMELAB_STACK.md)).
 
 ## Конфигурация
 
@@ -125,6 +132,7 @@ bash scripts/test_cursor_in_container.sh
 | [vps-setup/README.md](vps-setup/README.md) | VPS → Telegram |
 | [vps-setup/TELEGRAM_SETUP.md](vps-setup/TELEGRAM_SETUP.md) | Настройка бота |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Типичные ошибки |
+| [docs/HOMELAB_STACK.md](docs/HOMELAB_STACK.md) | Caddy, сервисы, HTTPS |
 | [docs/JELLYFIN_AND_VAULTWARDEN.md](docs/JELLYFIN_AND_VAULTWARDEN.md) | Jellyfin, Vaultwarden |
 | [SECURITY.md](SECURITY.md) | Секреты, `.gitignore`, что не коммитить |
 | [GITHUB_WEBHOOK_SETUP.md](GITHUB_WEBHOOK_SETUP.md) | GitHub (опционально) |

@@ -32,7 +32,7 @@ else
   echo "🔐 LAN: tls internal (*.home.arpa). Доверьте CA: ../scripts/export_caddy_root_ca.sh"
 fi
 
-python3 - <<'PY'
+python3 - <<PY
 import os
 from pathlib import Path
 
@@ -42,6 +42,6 @@ out = out.replace("{{PUBLIC_DOMAIN_BLOCK}}", os.environ.get("PUBLIC_DOMAIN_BLOCK
 Path("Caddyfile").write_text(out)
 PY
 
-docker compose -f docker-compose.caddy.yml up -d --force-recreate
-echo "Caddy на ${HOMELAB_HOST:-0.0.0.0}:443"
+docker compose -f docker-compose.caddy.yml up -d --force-recreate caddy
+echo "Caddy на ${HOMELAB_HOST:-0.0.0.0}:443 (HTTPS без отдельного логина)"
 echo "Vaultwarden: ${VW_DOMAIN:-https://vaultwarden.home.arpa}"

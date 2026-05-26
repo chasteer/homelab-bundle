@@ -40,3 +40,17 @@ check_web_interface "Immich" "http://${HOMELAB_HOST:-your_local_ip}:2283"
 check_web_interface "Vaultwarden" "http://${HOMELAB_HOST:-your_local_ip}:8081"
 check_web_interface "Uptime Kuma" "http://${HOMELAB_HOST:-your_local_ip}:3001"
 check_web_interface "Homelab Agent API" "http://${HOMELAB_HOST:-your_local_ip}:8000/api/health"
+
+if command -v curl >/dev/null 2>&1; then
+  echo ""
+  echo "🔒 HTTPS (*.home.arpa, нужен hosts/DNS):"
+  for pair in "Jellyfin|https://jellyfin.home.arpa" "Dozzle|https://dozzle.home.arpa" "it-tools|https://it-tools.home.arpa" "Home Assistant|https://homeassistant.home.arpa"; do
+    name="${pair%%|*}"
+    url="${pair##*|}"
+    if curl -fk -s "$url" >/dev/null 2>&1; then
+      echo "   ✅ $name: $url"
+    else
+      echo "   ⚠️  $name: $url (проверьте DNS и ./scripts/30_deploy_proxy_caddy.sh)"
+    fi
+  done
+fi

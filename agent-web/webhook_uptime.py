@@ -11,6 +11,7 @@ from fastapi import APIRouter, Request, HTTPException
 from pydantic import BaseModel
 from typing import Any, Dict, Optional
 
+from agent.container_logs import attach_container_logs
 from agent.cursor_incident import generate_cursor_incident_analysis
 
 try:
@@ -108,6 +109,7 @@ async def uptime_kuma_webhook(alert: UptimeAlert, request: Request):
         report_path = None
 
         if status in ("down", "error"):
+            attach_container_logs(details)
             print("🔍 Анализ через Cursor CLI...")
             (
                 incident_analysis_full,

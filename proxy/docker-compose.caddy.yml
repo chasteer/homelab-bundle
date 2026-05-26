@@ -13,9 +13,11 @@ services:
       - caddy-data:/data
       - caddy-config:/config
     restart: unless-stopped
+
 networks:
   homelab:
     external: true
+
 volumes:
   caddy-data:
   caddy-config:
