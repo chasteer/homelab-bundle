@@ -107,16 +107,19 @@ services:
     ports: ["${HOMELAB_HOST:-your_local_ip}:8081:80"]
     environment:
       - TZ=${TZ}
-      - SIGNUPS_ALLOWED=${VW_SIGNUPS_ALLOWED}
-      - DOMAIN=http://vaultwarden.home.arpa
+      - SIGNUPS_ALLOWED=${VW_SIGNUPS_ALLOWED:-false}
+      # Web vault требует HTTPS (или localhost). LAN по http://IP не работает — только https://vaultwarden.home.arpa
+      - DOMAIN=${VW_DOMAIN:-https://vaultwarden.home.arpa}
+      - IP_HEADER=X-Forwarded-For
     volumes:
       - /srv/secrets/vaultwarden:/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost/ || exit 1"]
+      test: ["CMD-SHELL", "curl -fsS http://127.0.0.1/alive >/dev/null || exit 1"]
       interval: 30s
       timeout: 5s
-      retries: 10
+      retries: 5
+      start_period: 20s
   uptime-kuma:
     image: louislam/uptime-kuma:latest
     container_name: uptime-kuma

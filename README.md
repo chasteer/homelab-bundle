@@ -125,6 +125,7 @@ bash scripts/test_cursor_in_container.sh
 | [vps-setup/README.md](vps-setup/README.md) | VPS → Telegram |
 | [vps-setup/TELEGRAM_SETUP.md](vps-setup/TELEGRAM_SETUP.md) | Настройка бота |
 | [TROUBLESHOOTING.md](TROUBLESHOOTING.md) | Типичные ошибки |
+| [docs/JELLYFIN_AND_VAULTWARDEN.md](docs/JELLYFIN_AND_VAULTWARDEN.md) | Jellyfin, Vaultwarden |
 | [SECURITY.md](SECURITY.md) | Секреты, `.gitignore`, что не коммитить |
 | [GITHUB_WEBHOOK_SETUP.md](GITHUB_WEBHOOK_SETUP.md) | GitHub (опционально) |
 

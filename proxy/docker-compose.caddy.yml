@@ -3,7 +3,11 @@ services:
     image: caddy:2
     container_name: caddy
     networks: [homelab]
-    ports: ["${HOMELAB_HOST:-your_local_ip}:443:443"]
+    ports:
+      - "${HOMELAB_HOST:-127.0.0.1}:443:443"
+      - "${HOMELAB_HOST:-127.0.0.1}:80:80"
+    env_file:
+      - ../services/.env
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy-data:/data

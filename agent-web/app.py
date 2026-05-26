@@ -33,6 +33,20 @@ if DB_TYPE == "postgres":
 else:
     engine = create_engine(DB_PATH, connect_args={"check_same_thread": False})
 
+db_ready = False
+db_init_error: Optional[str] = None
+try:
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as _session:
+        _session.exec(select(LogDoc).limit(1)).first()
+    db_ready = True
+except Exception as e:
+    db_init_error = str(e)
+    print(
+        f"⚠️ PostgreSQL недоступна — вебхуки Uptime Kuma работают, логи в БД нет: {e}",
+        flush=True,
+    )
+
 app = FastAPI(title="Homelab Incident Service")
 
 app.add_middleware(
@@ -42,8 +56,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-SQLModel.metadata.create_all(engine)
 app.include_router(uptime_webhook_router, prefix="/api", tags=["webhooks"])
 
 
@@ -56,6 +68,7 @@ def root():
             "uptime_webhook": "/api/webhook/uptime-kuma",
             "uptime_webhook_health": "/api/webhook/uptime-kuma/health",
             "test_cursor": "/api/webhook/uptime-kuma/test-cursor",
+            "test_vps": "/api/webhook/uptime-kuma/test-vps",
         },
     }
 
@@ -72,10 +85,13 @@ def health_check():
         db_ok = False
         db_error = str(e)
 
-    healthy = db_ok and cursor.get("cursor_cli_available") and cursor.get("cursor_api_key_set")
+    cursor_ok = cursor.get("cursor_cli_available") and cursor.get("cursor_api_key_set")
+    # Для алертов критичны Cursor + webhook; БД — только для /api/logs
+    healthy = cursor_ok and (db_ok or not db_ready)
     payload = {
         "status": "healthy" if healthy else "degraded",
-        "database": "connected" if db_ok else "error",
+        "database": "connected" if db_ok else ("unavailable" if not db_ready else "error"),
+        "database_init_error": db_init_error,
         "cursor_incidents_dir": os.environ.get("CURSOR_INCIDENTS_DIR", "/app/logs/incidents"),
         "timestamp": datetime.now().isoformat(),
         **cursor,
@@ -87,6 +103,11 @@ def health_check():
 
 @app.get("/api/logs")
 def get_logs(kind: Optional[str] = None, limit: int = 100):
+    if not db_ready:
+        raise HTTPException(
+            status_code=503,
+            detail=db_init_error or "Database unavailable",
+        )
     with Session(engine) as session:
         query = select(LogDoc)
         if kind:
@@ -172,14 +193,15 @@ async def github_webhook(request: Request, payload: GitHubWebhookPayload):
     pr_number = pr["number"]
     session_id = f"github_pr_{owner}_{repo_name}_{pr_number}"
 
-    with Session(engine) as session:
-        log_doc = LogDoc(
-            kind="webhook",
-            source=session_id,
-            content=f"GitHub PR #{pr_number} {payload.action} — чат-агент отключён",
-        )
-        session.add(log_doc)
-        session.commit()
+    if db_ready:
+        with Session(engine) as session:
+            log_doc = LogDoc(
+                kind="webhook",
+                source=session_id,
+                content=f"GitHub PR #{pr_number} {payload.action} — чат-агент отключён",
+            )
+            session.add(log_doc)
+            session.commit()
 
     return {
         "status": "logged",

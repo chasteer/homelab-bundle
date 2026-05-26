@@ -19,7 +19,10 @@ services:
       - UPTIME_KUMA_URL=${UPTIME_KUMA_URL:-http://uptime-kuma:3001}
       - UPTIME_KUMA_API=${UPTIME_KUMA_API:-}
       - AGENT_WEBHOOK_URL=${AGENT_WEBHOOK_URL:-http://localhost:8000/api/webhook/uptime-kuma}
-      - VPS_WEBHOOK_URL=${VPS_WEBHOOK_URL:-https://your_vps_domain.com/api/uptime-alerts}
+      - VPS_WEBHOOK_URL=${VPS_WEBHOOK_URL:-https://your_vps_domain.com/uptime-alerts}
+      - VPS_FORCE_IPV4=${VPS_FORCE_IPV4:-true}
+      - VPS_CONNECT_TIMEOUT=${VPS_CONNECT_TIMEOUT:-15}
+      - VPS_READ_TIMEOUT=${VPS_READ_TIMEOUT:-90}
       - CURSOR_API_KEY=${CURSOR_API_KEY:-}
       - CURSOR_CLI_PATH=${CURSOR_CLI_PATH:-/home/agent/.local/bin/agent}
       - CURSOR_WORKSPACE=${CURSOR_WORKSPACE:-/app/homelab}

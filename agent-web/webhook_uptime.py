@@ -4,6 +4,7 @@
 
 import os
 import json
+import socket
 import requests
 from datetime import datetime
 from fastapi import APIRouter, Request, HTTPException
@@ -188,6 +189,29 @@ async def uptime_kuma_webhook(alert: UptimeAlert, request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+def _vps_url() -> str:
+    """URL как в .env (на VPS может быть /uptime-alerts или /api/uptime-alerts)."""
+    return os.environ.get(
+        "VPS_WEBHOOK_URL",
+        "https://your_vps_domain.com/uptime-alerts",
+    ).strip().rstrip("/")
+
+
+def _vps_request_kwargs() -> Dict[str, Any]:
+    """Параметры requests: без прокси, опционально только IPv4 (частая причина таймаута в Docker)."""
+    kwargs: Dict[str, Any] = {
+        "proxies": {"http": None, "https": None},
+    }
+    if os.environ.get("VPS_FORCE_IPV4", "true").lower() in ("1", "true", "yes"):
+        import requests.packages.urllib3.util.connection as urllib3_connection
+
+        def _ipv4_only():
+            return socket.AF_INET
+
+        urllib3_connection.allowed_gai_family = _ipv4_only
+    return kwargs
+
+
 async def send_to_vps(
     service_name: str,
     status: str,
@@ -211,24 +235,57 @@ async def send_to_vps(
         "cursor_report_path": report_path,
     }
 
-    vps_url = os.environ.get(
-        "VPS_WEBHOOK_URL", "https://your_vps_domain.com/api/uptime-alerts"
-    )
+    vps_url = _vps_url()
+    if not vps_url.lower().startswith("https://"):
+        print(
+            "⚠️ VPS_WEBHOOK_URL без https — редирект nginx может превратить POST в GET (405)"
+        )
 
-    print(f"📤 VPS: {vps_url}")
+    connect_timeout = int(os.environ.get("VPS_CONNECT_TIMEOUT", "15"))
+    read_timeout = int(os.environ.get("VPS_READ_TIMEOUT", "90"))
+
+    print(f"📤 VPS: {vps_url} (connect={connect_timeout}s, read={read_timeout}s)")
 
     try:
         response = requests.post(
             vps_url,
             json=alert_data,
             headers={"Content-Type": "application/json"},
-            timeout=30,
+            timeout=(connect_timeout, read_timeout),
+            allow_redirects=False,
+            **_vps_request_kwargs(),
         )
+        if response.status_code in (301, 302, 303, 307, 308):
+            location = response.headers.get("Location", "")
+            return {
+                "success": False,
+                "error": (
+                    f"Редирект HTTP {response.status_code} → {location}. "
+                    "Укажите VPS_WEBHOOK_URL сразу на https://… (как в рабочем curl)"
+                ),
+            }
         if response.status_code == 200:
             return {"success": True, "message": "Отправлено на VPS", "response": response.text}
         return {
             "success": False,
             "error": f"HTTP {response.status_code}: {response.text[:300]}",
+        }
+    except requests.exceptions.ConnectTimeout:
+        return {
+            "success": False,
+            "error": (
+                f"Таймаут подключения к VPS ({connect_timeout}s). "
+                "Проверьте DNS/443 из контейнера: docker compose exec agent "
+                f"curl -4sv --max-time 15 -X POST {vps_url}"
+            ),
+        }
+    except requests.exceptions.ReadTimeout:
+        return {
+            "success": False,
+            "error": (
+                f"VPS не ответил за {read_timeout}s (часто Telegram API на VPS). "
+                "Проверьте логи VPS и test_telegram.php"
+            ),
         }
     except requests.exceptions.Timeout:
         return {"success": False, "error": "Таймаут VPS"}
@@ -241,6 +298,23 @@ async def send_to_vps(
 @router.get("/webhook/uptime-kuma/health")
 async def webhook_health():
     return {"status": "healthy", "service": "uptime-kuma-webhook"}
+
+
+@router.post("/webhook/uptime-kuma/test-vps")
+async def test_vps_webhook():
+    """Проверка доставки на VPS без Cursor (тестовый payload)."""
+    vps_response = await send_to_vps(
+        "test-service",
+        "up",
+        {"message": "test from homelab-agent", "datetime": datetime.now().isoformat()},
+        "🧪 Тест VPS webhook из homelab-agent",
+        analysis_type="test",
+    )
+    return {
+        "vps_url": _vps_url(),
+        "vps_response": vps_response,
+        "timestamp": datetime.now().isoformat(),
+    }
 
 
 @router.post("/webhook/uptime-kuma/test-cursor")
